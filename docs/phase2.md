@@ -156,6 +156,46 @@ Se ajustan baseline, Random Forest y XGBoost con los mismos hiperparámetros y c
 
 Los resultados no acreditan disponibilidad histórica real de features/etiquetas, snapshots de reserva/catálogo, validez de candidatos no-show, semántica operativa ni estabilidad temporal. La población sigue condicionada por elegibilidad/cancelaciones y la purga por madurez puede introducir selección diferencial. Retirar filas UID -1 no reconstruye el historial del ETL. Pesos de clase pueden distorsionar probabilidades; Brier y la curva de confiabilidad son diagnósticos, sin calibración operativa. La comparación corresponde a validación y no prueba rendimiento sobre el período reservado o producción.
 
+## Una única ronda acotada de hiperparámetros (PROMPT6)
+
+```bash
+.venv/bin/depi-ml optimize-exploratory \
+  --csv data/exports/training_dataset_v1.csv \
+  --labels data/exports/training_dataset_v1_labels.csv \
+  --reference experiments/phase2-exploratory-prompt5-20261008 \
+  --review reports/phase2-labels-prompt4-20261008/methodology_review_template.json \
+  --output experiments/phase2-optimization-prompt6-20261008
+```
+
+La salida debe ser nueva y separada de la referencia. Los cortes se recuperan exclusivamente del experimento original; no se ofrecen opciones para cambiar fechas, semilla ni umbral. Se conservan los controles técnicos, incluyendo purga por `label_recorded_at`, correspondencia exacta, integridad y fechas críticas. La prueba no se materializa. Se verifican las versiones, hashes, features y parámetros de los modelos originales locales antes de deserializar; se reproduce su matriz de confusión y las seis métricas de validación antes de ajustar cualquier candidato. El código nuevo de optimización puede diferir del hash global original: se registran ambos hashes y la equivalencia de métricas, sin alterar los artefactos previos. El preprocesamiento no se modifica.
+
+La ronda está fijada en `training/optimization.py`, sin búsqueda adaptativa ni early stopping:
+
+| Algoritmo | Configuración | Cambios frente al original |
+| --- | --- | --- |
+| Random Forest | `rf_leaf20` | `min_samples_leaf=20` |
+| Random Forest | `rf_features03` | `max_features=0.3` |
+| Random Forest | `rf_regularized` | Hoja 20, fracción de variables 0.3, profundidad máxima 16 |
+| XGBoost | `xgb_shallow` | 300 árboles, profundidad 3, `min_child_weight=5`, lambda 5 |
+| XGBoost | `xgb_depth5` | 300 árboles, profundidad 5, `min_child_weight=5`, lambda 5 |
+| XGBoost | `xgb_deep_regularized` | 400 árboles, profundidad 6, aprendizaje 0.03, peso mínimo 10, lambda 10, gamma 0.1 |
+| XGBoost | `xgb_slow` | 400 árboles, aprendizaje 0.03, peso mínimo 5, lambda 5 |
+| XGBoost | `xgb_unweighted` | 300 árboles, peso mínimo 5, lambda 5, `scale_pos_weight=1` |
+
+Se ejecutan ambos algoritmos en `full` y `without_catalog`: 16 modelos nuevos. Contando la configuración original, hay cuatro RF y seis XGBoost por experimento, por debajo del máximo de ocho. Las seis referencias (incluidos dos baselines) se reevaluúan exclusivamente en validación sin volver a ajustarlas. La semilla es 42 y el umbral diagnóstico 0.5; modificar el umbral no cambia ROC-AUC/AP, calculados con probabilidades.
+
+`plan.json` registra la ronda, criterios y contexto antes de los ajustes. `validation_comparison.json`/`.csv` incluye las seis métricas para referencias y candidatos. `validation_monthly.json`/`.csv` y `optimization_report.md` incluyen todas las métricas, N y prevalencia por **mes de reserva (`prediction_at`) en America/Lima**; esto difiere de la agrupación por fecha de cita del reporte previo y evita confundir citas posteriores con reservas de prueba. Hay gráficos mensuales de AP y Brier por algoritmo/experimento. Se conservan parámetros efectivos, hashes de cada modelo y referencias, estados pendientes y límites comerciales. `experiment.json` solo se publica tras completar toda la ronda y comprobar que fuentes, referencia, código y plan mantienen sus hashes; `evaluate` rechaza el resultado exploratorio.
+
+La relevancia se define **antes de observar candidatos**, como criterio descriptivo: ganancia absoluta de AP >=0.01 frente al mismo algoritmo original, deterioro ROC-AUC <=0.002, aumento Brier <=0.002 y caída AP por mes <=0.01. No es un umbral clínico/operativo ni prueba de significancia estadística. Se muestran todos los candidatos; no se promueve un modelo definitivo ni se ejecuta otra ronda si las diferencias son pequeñas. Reutilizar validación para seleccionar hiperparámetros introduce optimismo: las diferencias no tienen confirmación independiente ni intervalos de incertidumbre.
+
+### Contexto comercial aportado por el usuario
+
+Antes de la transición se permitía reservar sin pagar y abonar al llegar. Después se exigió generalmente comprar un bono antes de reservar; permanece la excepción de atención presencial el mismo día con disponibilidad. La implementación se sitúa aproximadamente entre **junio y julio de 2026**, sin día exacto. No se inventa una fecha, no se modifica ningún corte/etiqueta y esta información no se usa como predictor.
+
+La auditoría previa aportada por el usuario indicó tasas de candidatos no-show de junio 20.92%, julio 7.15%, agosto 4.78% y septiembre 2.58%. Se conservan como **antecedentes externos declarados**, sin recalcular la prueba ni generar métricas predictivas de julio-septiembre. Son compatibles con un cambio de distribución/comportamiento (*concept drift*), pero no demuestran causalidad exclusiva ni separan cambios de mezcla de clientes/clínicas, tracking, cobertura, madurez de etiquetas o selección de atención presencial. Los porcentajes pueden corresponder a otra base temporal/población que la validación purgada; no se exige que coincidan.
+
+La validación de abril-junio incluye junio como posible transición y no estima rendimiento en el régimen comercial posterior. Las tasas y métricas mensuales deben interpretarse conjuntamente; una mejor AP global no demuestra estabilidad temporal ni generalización tras la política. Los ocho controles metodológicos y la calibración operativa siguen pendientes.
+
 ## Entrenar después de superar controles
 
 Estos cortes son un **protocolo candidato**, que debe justificarse frente a las alertas y cobertura observadas antes de ejecutarlo; no resuelven el cambio de etiquetas:

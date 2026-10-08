@@ -47,12 +47,13 @@ def parser() -> argparse.ArgumentParser:
     evaluate = commands.add_parser("evaluate", help="Evaluar la prueba reservada de un experimento local propio.")
     label_export = commands.add_parser("export-label-availability", help="Exportar marcas por cita en PostgreSQL READ ONLY sin sobrescribir el dataset.")
     label_validate = commands.add_parser("validate-label-availability", help="Validar el auxiliar y previsualizar cortes sin entrenar ni conectar a PostgreSQL.")
-    for command in [analyze, train, evaluate, label_export, label_validate]:
+    optimize = commands.add_parser("optimize-exploratory", help="Una ronda fija para full/without_catalog, solo validación y sin prueba.")
+    for command in [analyze, train, evaluate, label_export, label_validate, optimize]:
         command.add_argument("--csv", type=Path, default=Path("data/exports/training_dataset_v1.csv"))
         command.add_argument("--manifest", type=Path, help="Por defecto, <nombre_csv>_manifest.json.")
         command.add_argument("--output", type=Path, required=True,
                              help="CSV auxiliar nuevo." if command is label_export else "Carpeta nueva fuera de data/exports.")
-    for command in [train, evaluate, label_validate]:
+    for command in [train, evaluate, label_validate, optimize]:
         command.add_argument("--labels", type=Path, required=True, help="CSV auxiliar de label_recorded_at.")
         command.add_argument("--labels-manifest", type=Path, help="Por defecto, <nombre_auxiliar>_manifest.json.")
     for name in ["validation-start", "test-start", "test-end"]:
@@ -60,6 +61,8 @@ def parser() -> argparse.ArgumentParser:
     analyze.add_argument("--timezone", default="America/Lima")
     analyze.add_argument("--min-group", type=_batch_size, default=10)
     train.add_argument("--review", type=Path, help="JSON de revisión con evidencia, ligado al hash del CSV.")
+    optimize.add_argument("--reference", type=Path, required=True, help="Experimento exploratorio original terminado; no se sobrescribe.")
+    optimize.add_argument("--review", type=Path, help="Plantilla metodológica original; se conserva sin verificar estados.")
     train.add_argument("--exploratory", action="store_true",
                        help="Permitir controles metodológicos pendientes; solo entrenamiento/validación, EXPLORATORY_NOT_VALIDATED.")
     for name in ["validation-start", "test-start", "test-end"]:
@@ -88,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
                   f"Registros: {summary['rows']}; fechas ausentes: {summary['missing_label_recorded_at']}.\n"
                   "label_recorded_at es una marca registrada; disponibilidad real pendiente de validación humana.")
             return _label_temporal_status(summary, logger)
-        elif args.command in {"analyze-dataset", "train", "evaluate", "validate-label-availability"}:
+        elif args.command in {"analyze-dataset", "train", "evaluate", "validate-label-availability", "optimize-exploratory"}:
             try:
                 if args.command == "analyze-dataset":
                     from depi_ml.analysis.reports import analyze
@@ -110,6 +113,12 @@ def main(argv: list[str] | None = None) -> int:
                     output = evaluate(args.csv, args.manifest, args.experiment, args.output, args.shap,
                                       labels_path=args.labels, labels_manifest_path=args.labels_manifest)
                     print(f"Evaluación de prueba: {output}\nResultados experimentales; no constituyen aprobación de producción.")
+                elif args.command == "optimize-exploratory":
+                    from depi_ml.training.optimization import optimize
+                    output = optimize(args.csv, args.manifest, args.labels, args.labels_manifest, args.reference,
+                                      args.output, args.review)
+                    print(f"Optimización local: {output}\nEXPLORATORY_NOT_VALIDATED: una ronda completada; "
+                          "umbral 0.5, semilla 42, prueba reservada sin evaluar. No se seleccionó modelo definitivo.")
                 else:
                     from depi_ml.analysis.label_report import validate_labels
                     output, report = validate_labels(args.csv, args.manifest, args.labels, args.labels_manifest, args.output,
