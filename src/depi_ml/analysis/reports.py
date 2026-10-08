@@ -8,6 +8,7 @@ import pandas as pd
 from depi_ml.analysis.audit import audit_dataset
 from depi_ml.analysis.dataset import Phase2Error, load_dataset, new_output, write_json
 from depi_ml.datasets.schema import PREDICTOR_COLUMNS
+from depi_ml.datasets.label_availability import write_review_template
 
 DESCRIPTIVE_CATEGORIES = ["client_sex", "clinic_id", "single_body_area_id", "is_fwa", "has_medical_evaluation",
                           "has_type4_service", "appointment_month", "appointment_weekday", "appointment_hour"]
@@ -112,11 +113,7 @@ def analyze(csv_path: Path, manifest_path: Path | None, output: Path, timezone="
     report["classes"] = {"attended": int((df.target == 0).sum()), "no_show": int((df.target == 1).sum()),
                          "no_show_rate": float(df.target.mean())}
     write_json(out / "audit.json", report)
-    template = {"dataset_sha256": dataset.sha256, "feature_versions": dataset.manifest["feature_versions"],
-                "reviewer": "", "reviewed_at": "", "label_delay_hours": None,
-                "checks": {name: {"status": "pending", "evidence": "", "instruction": instruction}
-                           for name, instruction in report["pending_review"].items()}}
-    write_json(out / "methodology_review_template.json", template)
+    write_review_template(out / "methodology_review_template.json", dataset)
     lines = ["# Auditoría metodológica", "", f"Filas: {len(df)}. SHA-256: `{dataset.sha256}`.",
              "", "Entrenamiento bloqueado hasta aportar evidencia externa vinculada a este hash.",
              "La plantilla pendiente no autoriza entrenamiento. No se certifica ausencia de fuga.", "",

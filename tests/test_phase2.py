@@ -24,50 +24,21 @@ from depi_ml.training.review import require_review
 from depi_ml.training.splits import temporal_split
 
 
-@pytest.fixture
-def local_dataset(tmp_path):
-    source = tmp_path / "source"
-    source.mkdir()
-    records = []
-    for i in range(90):
-        month = i // 30 + 1
-        date = pd.Timestamp(f"2025-{month:02d}-05T12:00:00Z") + pd.Timedelta(hours=i % 30)
-        appointment = date + pd.Timedelta(hours=1)
-        local = appointment.tz_convert("America/Lima")
-        row = {c: None for c in EXPORT_COLUMNS}
-        row.update(appointment_id=10000 + i, client_id=20000 + i, prediction_at=date.isoformat(),
-                   appointment_at=appointment.isoformat(), target=i % 2,
-                   no_show_uid_minus_one="t" if i % 10 == 3 else "f", age_at_booking=20 + i % 40,
-                   client_sex="F" if i % 2 else "M", booking_lead_days=1 / 24,
-                   appointment_month=local.month, appointment_weekday=(local.dayofweek + 1) % 7,
-                   appointment_hour=local.hour, duration_minutes=30 + i % 20, is_fwa="f",
-                   clinic_id=1 + i % 3, scheduled_service_lines=1, distinct_body_areas=1,
-                   single_body_area_id=5, has_medical_evaluation="f", has_type4_service="f",
-                   previous_attended=0, previous_no_show=0, feature_version="SYNTHETIC_TEST_V1",
-                   built_at="2025-04-01T00:00:00Z")
-        records.append(row)
-    path = source / "fixture.csv"
-    with path.open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=EXPORT_COLUMNS)
-        writer.writeheader()
-        writer.writerows(records)
-    manifest = {"dataset_name": "synthetic_test", "row_count": len(records), "column_count": len(EXPORT_COLUMNS),
-                "columns": EXPORT_COLUMNS, "size_bytes": path.stat().st_size, "sha256": digest(path),
-                "feature_versions": ["SYNTHETIC_TEST_V1"], "exported_at": "2025-04-01T00:00:00Z"}
-    write_json(source / "fixture_manifest.json", manifest)
-    return load_dataset(path)
-
-
-def approved_review(dataset):
+def approved_review(dataset, labels=None):
     return {"dataset_sha256": dataset.sha256, "feature_versions": dataset.manifest["feature_versions"],
-            "reviewer": "Synthetic test only", "reviewed_at": "2025-04-02T00:00:00Z", "label_delay_hours": 2,
+            "reviewer": "Synthetic test only", "reviewed_at": "2025-04-02T00:00:00Z",
+            "label_availability_sha256": labels.sha256 if labels else None,
+            "label_availability_manifest_sha256": labels.manifest_sha256 if labels else None,
             "checks": {name: {"status": "verified" if name in VERIFIED_REQUIREMENTS else "acknowledged",
                               "evidence": "Synthetic fixture evidence for automated tests only."} for name in REVIEW_REQUIREMENTS}}
 
 
-def split(frame, delay=2):
+def split(frame):
+    if "label_recorded_at" not in frame:
+        # Marca registrada sintética explícita de esta fixture; no regla productiva de demora.
+        frame = frame.assign(label_recorded_at=frame.appointment_at + pd.Timedelta(hours=2))
     return temporal_split(frame, "2025-02-01T00:00:00Z", "2025-03-01T00:00:00Z",
-                          "2025-04-01T00:00:00Z", delay, "2025-04-01T00:00:00Z")
+                          "2025-04-01T00:00:00Z", "2025-04-01T00:00:00Z")
 
 
 def test_integrity_and_source_preserved(local_dataset, tmp_path):
@@ -154,10 +125,10 @@ def test_temporal_split_purges_labels_including_long_lead(local_dataset):
     frame.loc[30, "appointment_at"] = pd.Timestamp("2025-03-02T00:00:00Z")
     parts = split(frame)
     assert 0 not in parts.train.index and 30 not in parts.validation.index
-    assert parts.metadata["partitions"]["train"]["purged_immature_labels"] == 1
+    assert parts.metadata["partitions"]["train"]["excluded_labels_not_available"] == 1
     for name, part in [("train", parts.train), ("validation", parts.validation), ("test", parts.test)]:
         cutoff = pd.Timestamp(parts.metadata["partitions"][name]["label_cutoff_exclusive"])
-        assert (part.appointment_at + pd.Timedelta(hours=2) < cutoff).all()
+        assert (part.label_recorded_at < cutoff).all()
     assert parts.train.prediction_at.max() < parts.validation.prediction_at.min() < parts.test.prediction_at.min()
     assert not (set(parts.train.index) & set(parts.test.index))
 
@@ -168,10 +139,11 @@ def test_label_availability_exact_boundary_is_excluded(local_dataset):
     assert 0 not in split(frame).train.index
 
 
-@pytest.mark.parametrize("delay", [-1, float("nan"), float("inf"), True])
-def test_invalid_label_delay(local_dataset, delay):
+@pytest.mark.parametrize("value", [1, "2025-01-01", True, "invalid date"])
+def test_invalid_label_recorded_type(local_dataset, value):
+    frame = local_dataset.frame.assign(label_recorded_at=value)
     with pytest.raises(Phase2Error):
-        split(local_dataset.frame, delay)
+        split(frame)
 
 
 def test_single_class_split_rejected(local_dataset):
@@ -206,7 +178,7 @@ def test_preprocessing_fit_only_on_train_and_safe_categories(local_dataset):
     assert np.allclose(pipeline.predict_proba(train), pipeline.predict_proba(numeric_categories))
 
 
-@pytest.mark.parametrize("feature", ["target", "client_id", "appointment_at", "no_show_uid_minus_one", "built_at"])
+@pytest.mark.parametrize("feature", ["target", "client_id", "appointment_at", "no_show_uid_minus_one", "built_at", "label_recorded_at"])
 def test_forbidden_predictors(local_dataset, feature):
     with pytest.raises(Phase2Error, match="ajenas"):
         FeatureContract([feature]).fit(local_dataset.frame)
@@ -265,7 +237,7 @@ def test_reports_and_shap_with_real_estimators(local_dataset, tmp_path):
         assert (out / "shap_importance.csv").is_file()
 
 
-def test_train_evaluate_persistence_and_tamper_checks(local_dataset, tmp_path, monkeypatch):
+def test_train_evaluate_persistence_and_tamper_checks(local_dataset, labels, tmp_path, monkeypatch):
     from depi_ml.training import experiments
     from depi_ml.evaluation import runner
     # Las curvas y explicaciones se verifican aparte; aquí interesa el ciclo persistido completo.
@@ -276,30 +248,55 @@ def test_train_evaluate_persistence_and_tamper_checks(local_dataset, tmp_path, m
     monkeypatch.setattr(runner, "evaluate_partition", small_report)
     source_hash = digest(local_dataset.source)
     review = tmp_path / "review.json"
-    write_json(review, approved_review(local_dataset))
+    write_json(review, approved_review(local_dataset, labels))
     output = tmp_path / "experiment"
     with pytest.raises(Phase2Error):
         experiments.train(local_dataset.source, None, output, None, "2025-02-01T00:00:00Z", "2025-03-01T00:00:00Z", "2025-04-01T00:00:00Z")
     assert not output.exists()
-    experiments.train(local_dataset.source, None, output, review, "2025-02-01T00:00:00Z", "2025-03-01T00:00:00Z", "2025-04-01T00:00:00Z")
+    experiments.train(local_dataset.source, None, output, review, "2025-02-01T00:00:00Z", "2025-03-01T00:00:00Z", "2025-04-01T00:00:00Z", labels_path=labels.source)
     metadata = json.loads((output / "experiment.json").read_text())
     assert len(metadata["models"]) == 12
     assert metadata["test_status"] == "reserved_for_evaluate"
+    assert metadata["artifact_format_version"] == 2
+    assert metadata["label_availability"] == labels.identity()
     uid_entry = next(e for e in metadata["models"] if e["experiment"] == "without_uid_minus_one")
     assert uid_entry["split"]["partitions"]["train"]["rows"] == 27
-    test_output = runner.evaluate(local_dataset.source, None, output, tmp_path / "evaluation")
+    test_output = runner.evaluate(local_dataset.source, None, output, tmp_path / "evaluation", labels_path=labels.source)
     result = json.loads((test_output / "test_comparison.json").read_text())
     assert len(result["results"]) == 12
+    from tests.conftest import write_label_fixture
+    changed_labels = tmp_path / "different_labels.csv"
+    records = labels.frame.to_dict("records")
+    records[0]["label_recorded_at"] += pd.Timedelta(minutes=1)
+    write_label_fixture(changed_labels, local_dataset, records)
+    with pytest.raises(Phase2Error, match="difiere del utilizado"):
+        runner.evaluate(local_dataset.source, None, output, tmp_path / "different_labels_eval", labels_path=changed_labels)
+    assert not (tmp_path / "different_labels_eval").exists()
+    copied_labels = tmp_path / "same_data_different_manifest.csv"
+    copied_labels.write_bytes(labels.source.read_bytes())
+    changed_manifest = labels.manifest.copy()
+    changed_manifest["exported_at"] = "2025-04-02T00:01:00Z"
+    write_json(copied_labels.with_name(copied_labels.stem + "_manifest.json"), changed_manifest)
+    with pytest.raises(Phase2Error, match="difiere del utilizado"):
+        runner.evaluate(local_dataset.source, None, output, tmp_path / "different_manifest_eval", labels_path=copied_labels)
+    assert not (tmp_path / "different_manifest_eval").exists()
+    legacy = metadata.copy()
+    legacy["artifact_format_version"] = 1
+    write_json(output / "experiment.json", legacy)
+    with pytest.raises(Phase2Error, match="Versión de artefacto"):
+        runner.evaluate(local_dataset.source, None, output, tmp_path / "legacy_eval", labels_path=labels.source)
+    assert not (tmp_path / "legacy_eval").exists()
+    write_json(output / "experiment.json", metadata)
     changed = metadata.copy()
     changed["source_code_sha256"] = "changed"
     write_json(output / "experiment.json", changed)
     with pytest.raises(Phase2Error, match="Código distinto"):
-        runner.evaluate(local_dataset.source, None, output, tmp_path / "changed_code_eval")
+        runner.evaluate(local_dataset.source, None, output, tmp_path / "changed_code_eval", labels_path=labels.source)
     assert not (tmp_path / "changed_code_eval").exists()
     write_json(output / "experiment.json", metadata)
     model = output / metadata["models"][0]["model_path"]
     model.write_bytes(model.read_bytes() + b"tampered")
     with pytest.raises(Phase2Error, match="hash de modelo"):
-        runner.evaluate(local_dataset.source, None, output, tmp_path / "tampered_eval")
+        runner.evaluate(local_dataset.source, None, output, tmp_path / "tampered_eval", labels_path=labels.source)
     assert not (tmp_path / "tampered_eval").exists()
     assert digest(local_dataset.source) == source_hash

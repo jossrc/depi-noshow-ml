@@ -13,6 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from depi_ml.analysis.audit import audit_dataset
 from depi_ml.analysis.dataset import Phase2Error, digest, load_dataset, new_output, write_json
 from depi_ml.datasets.schema import PREDICTOR_COLUMNS
+from depi_ml.datasets.label_availability import attach_labels, load_label_availability
 from depi_ml.evaluation.reports import evaluate_partition
 from depi_ml.training.preprocessing import CATALOG_COLUMNS, make_pipeline
 from depi_ml.training.review import require_review
@@ -60,15 +61,20 @@ def check_options(threshold, min_group, importance_samples):
 
 
 def train(csv_path, manifest_path, output, review_path, validation_start, test_start, test_end,
-          seed=42, threshold=.5, min_group=30, importance_samples=2000):
+          seed=42, threshold=.5, min_group=30, importance_samples=2000, *, labels_path=None, labels_manifest_path=None):
     check_options(threshold, min_group, importance_samples)
     dataset = load_dataset(csv_path, manifest_path)
+    if labels_path is None:
+        raise Phase2Error("Entrenamiento requiere --labels con el auxiliar validado; no se permite demora global.")
+    labels = load_label_availability(dataset, labels_path, labels_manifest_path)
+    frame = attach_labels(dataset, labels)
     audit = audit_dataset(dataset)
-    review = require_review(dataset, audit, review_path)
+    audit["label_availability"] = labels.summary
+    review = require_review(dataset, audit, review_path, labels)
     splits = {}
     for name in EXPERIMENTS:
-        splits[name] = temporal_split(experiment_frame(dataset.frame, name), validation_start, test_start, test_end,
-                                      review["label_delay_hours"], dataset.manifest["exported_at"])
+        splits[name] = temporal_split(experiment_frame(frame, name), validation_start, test_start, test_end,
+                                      dataset.manifest["exported_at"])
     try:
         from xgboost import XGBClassifier
     except ImportError:
@@ -80,15 +86,17 @@ def train(csv_path, manifest_path, output, review_path, validation_start, test_s
     write_json(out / "audit.json", audit)
     write_json(out / "review.json", review)
     metadata = {
-        "artifact_format_version": 1, "status": "development_experiment_not_production",
+        "artifact_format_version": 2, "status": "development_experiment_not_production",
         "dataset_name": dataset.manifest["dataset_name"], "dataset_sha256": dataset.sha256,
         "dataset_rows": len(dataset.frame), "feature_versions": dataset.manifest["feature_versions"],
         "predictor_contract": list(PREDICTOR_COLUMNS), "seed": seed, "versions": versions(),
         "source_code_sha256": source_hash(), "threshold": threshold,
+        "label_availability": labels.identity(), "label_availability_summary": labels.summary,
         "threshold_policy": "Fixed diagnostic threshold; not tuned on test; no LOW/MEDIUM/HIGH bands",
         "min_group": min_group, "importance_samples": importance_samples, "models": [],
         "test_status": "reserved_for_evaluate", "hyperparameter_selection": "fixed a priori; no search on test",
-        "warnings": ["External review supplies a label maturity bound; CSV alone cannot verify actual known_at.",
+        "warnings": ["label_recorded_at is a recorded timestamp proxy; actual availability requires external human validation.",
+                     "Missing and late administrative closes are excluded by cutoff; assess differential selection by target.",
                      "Excluding UID -1 rows does not rebuild historical features: previous_no_show may still count UID -1 events.",
                      "Population conditioned on original eligibility/exclusion criteria; not validated for all future bookings."],
     }

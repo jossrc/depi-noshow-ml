@@ -32,10 +32,18 @@ def parser() -> argparse.ArgumentParser:
     analyze = commands.add_parser("analyze-dataset", help="Auditar CSV y manifest locales sin PostgreSQL.")
     train = commands.add_parser("train", help="Entrenar con revisión acreditada y reservar prueba temporal.")
     evaluate = commands.add_parser("evaluate", help="Evaluar la prueba reservada de un experimento local propio.")
-    for command in [analyze, train, evaluate]:
+    label_export = commands.add_parser("export-label-availability", help="Exportar marcas por cita en PostgreSQL READ ONLY sin sobrescribir el dataset.")
+    label_validate = commands.add_parser("validate-label-availability", help="Validar el auxiliar y previsualizar cortes sin entrenar ni conectar a PostgreSQL.")
+    for command in [analyze, train, evaluate, label_export, label_validate]:
         command.add_argument("--csv", type=Path, default=Path("data/exports/training_dataset_v1.csv"))
         command.add_argument("--manifest", type=Path, help="Por defecto, <nombre_csv>_manifest.json.")
-        command.add_argument("--output", type=Path, required=True, help="Carpeta nueva fuera de data/exports.")
+        command.add_argument("--output", type=Path, required=True,
+                             help="CSV auxiliar nuevo." if command is label_export else "Carpeta nueva fuera de data/exports.")
+    for command in [train, evaluate, label_validate]:
+        command.add_argument("--labels", type=Path, required=True, help="CSV auxiliar de label_recorded_at.")
+        command.add_argument("--labels-manifest", type=Path, help="Por defecto, <nombre_auxiliar>_manifest.json.")
+    for name in ["validation-start", "test-start", "test-end"]:
+        label_validate.add_argument(f"--{name}", help="Opcional: los tres cortes para una vista de particiones sin entrenamiento.")
     analyze.add_argument("--timezone", default="America/Lima")
     analyze.add_argument("--min-group", type=_batch_size, default=10)
     train.add_argument("--review", type=Path, help="JSON de revisión con evidencia, ligado al hash del CSV.")
@@ -55,7 +63,19 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s level=%(levelname)s %(message)s")
     logger = logging.getLogger(__name__)
     try:
-        if args.command in {"analyze-dataset", "train", "evaluate"}:
+        if args.command == "export-label-availability":
+            try:
+                from depi_ml.datasets.label_exporter import export_label_availability
+            except ImportError:
+                raise Phase2Error("Instala '.[ml]' para validar el CSV original y exportar el auxiliar.") from None
+            labels, manifest, quality, summary = export_label_availability(Settings.from_env(), args.csv, args.manifest, args.output)
+            print(f"Auxiliar local: {labels}\nManifest: {manifest}\nCalidad: {quality}\n"
+                  f"Registros: {summary['rows']}; fechas ausentes: {summary['missing_label_recorded_at']}.\n"
+                  "label_recorded_at es una marca registrada; disponibilidad real pendiente de validación humana.")
+            if summary["inconsistent_dates"]:
+                logger.error("event=label_dates_inconsistent count=%d message=Auxiliar conservado para auditoría; entrenamiento bloqueado.", summary["inconsistent_dates"])
+                return 1
+        elif args.command in {"analyze-dataset", "train", "evaluate", "validate-label-availability"}:
             try:
                 if args.command == "analyze-dataset":
                     from depi_ml.analysis.reports import analyze
@@ -64,12 +84,24 @@ def main(argv: list[str] | None = None) -> int:
                 elif args.command == "train":
                     from depi_ml.training.experiments import train
                     output = train(args.csv, args.manifest, args.output, args.review, args.validation_start,
-                                   args.test_start, args.test_end, args.seed, args.threshold, args.min_group, args.importance_samples)
+                                   args.test_start, args.test_end, args.seed, args.threshold, args.min_group, args.importance_samples,
+                                   labels_path=args.labels, labels_manifest_path=args.labels_manifest)
                     print(f"Experimento local: {output}\nValidación completada; prueba reservada para evaluate. Modelos experimentales.")
-                else:
+                elif args.command == "evaluate":
                     from depi_ml.evaluation.runner import evaluate
-                    output = evaluate(args.csv, args.manifest, args.experiment, args.output, args.shap)
+                    output = evaluate(args.csv, args.manifest, args.experiment, args.output, args.shap,
+                                      labels_path=args.labels, labels_manifest_path=args.labels_manifest)
                     print(f"Evaluación de prueba: {output}\nResultados experimentales; no constituyen aprobación de producción.")
+                else:
+                    from depi_ml.analysis.label_report import validate_labels
+                    output, report = validate_labels(args.csv, args.manifest, args.labels, args.labels_manifest, args.output,
+                                                     args.validation_start, args.test_start, args.test_end)
+                    print(f"Validación local: {output}\nRegistros: {report['validation']['rows']}; "
+                          f"fechas ausentes: {report['validation']['missing_label_recorded_at']}.\n"
+                          "No se entrenaron modelos ni se verificó automáticamente la revisión metodológica.")
+                    if report["validation"]["inconsistent_dates"]:
+                        logger.error("event=label_dates_inconsistent count=%d message=Consulta el reporte agregado; entrenamiento bloqueado.", report["validation"]["inconsistent_dates"])
+                        return 1
             except ImportError:
                 raise Phase2Error("Faltan dependencias de Fase 2: instala '.[ml]' y, para SHAP, '.[explain]'.") from None
         elif args.command == "inspect-dataset":

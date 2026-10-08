@@ -31,3 +31,5 @@ artifacts/
 *.onnx
 methodology_review*.json
 .mplconfig/
+*_manifest.json
+*_quality_report.json

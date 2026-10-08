@@ -10,7 +10,7 @@ from depi_ml.datasets.schema import PREDICTOR_COLUMNS
 REVIEW_REQUIREMENTS = {
     "history_point_in_time": "Revisar SQL completo: known_at < prediction_at, sin fila propia ni eventos futuros; auditar event_at y disponibilidad real.",
     "booking_snapshot": "Acreditar que horario, clínica, duración, sexo y líneas SCHEDULED reflejan la reserva y no modificaciones posteriores, servicios realizados o facturados.",
-    "label_availability": "Acreditar disponibilidad de ambas etiquetas antes de cada corte; el CSV no tiene outcome_resolved_at/known_at. Justificar una cota máxima de demora en horas después de appointment_at.",
+    "label_availability": "Validar humanamente label_recorded_at del auxiliar: LaserGCloseDate en America/Lima para asistencias y outcome_resolved_at para no-shows. Son marcas registradas, no disponibilidad real certificada. Revisar cierres tardíos, fechas faltantes, modificaciones/ingesta y sesgo de exclusión por corte; no usar una demora global.",
     "catalog_snapshot": "Acreditar catálogo histórico/as-of para áreas, tipos y evaluación médica; updated_at actual no demuestra vigencia histórica.",
     "label_definition": "Validar candidatos no-show, conflictos y tracking UID -1, zona horaria y reglas de cierre; no son inasistencias confirmadas por el CSV.",
     "selection_bias": "Documentar exclusión de cancelaciones anticipadas y otras exclusiones: evaluación condicionada a población elegible, no a todas las reservas futuras.",
@@ -91,7 +91,7 @@ def audit_dataset(dataset: LocalDataset, timezone: str = "America/Lima") -> dict
     warnings.extend([
         "Historial: eventos fuera del CSV y known_at ausente impiden reconstrucción exacta. Exceder eventos observados no prueba fuga; fechas ordenadas tampoco la descartan.",
         "ETL completo de construcción no acreditado por este análisis; bds/analytics.sql contiene DDL y una vista de clasificación, no la consulta de las 19 features.",
-        "Sin fecha de disponibilidad de etiquetas ni snapshots de reserva/catálogo: controles críticos pendientes antes de entrenar.",
+        "El CSV no incluye fechas registradas de etiquetas. El auxiliar permite cortes por cita, pero esas marcas requieren revisión humana como aproximación de disponibilidad real; los snapshots de reserva/catálogo también siguen pendientes.",
         "UID -1 se compara como subgrupo de auditoría; diferencias descriptivas no validan la etiqueta ni identifican un efecto causal.",
         "Cambios mensuales pueden reflejar mezcla de clínicas, estacionalidad, meses incompletos o reglas; no prueban concept drift.",
     ])

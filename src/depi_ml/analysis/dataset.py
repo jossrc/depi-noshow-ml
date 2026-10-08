@@ -24,6 +24,8 @@ class LocalDataset:
     manifest: dict
     source: Path
     sha256: str
+    manifest_source: Path | None = None
+    manifest_sha256: str | None = None
 
 
 def load_dataset(csv_path: Path, manifest_path: Path | None = None) -> LocalDataset:
@@ -32,6 +34,7 @@ def load_dataset(csv_path: Path, manifest_path: Path | None = None) -> LocalData
     if not csv_path.is_file() or not manifest_path.is_file():
         raise Phase2Error("Falta el CSV local o su manifest; no se inventan resultados.")
     try:
+        manifest_sha = digest(manifest_path)
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         sha = digest(csv_path)
         if not isinstance(manifest, dict):
@@ -75,12 +78,12 @@ def load_dataset(csv_path: Path, manifest_path: Path | None = None) -> LocalData
             if (values.notna() & parsed.isna()).any():
                 raise Phase2Error(f"Tipo inválido en {name}.")
             frame[name] = parsed
-        if len(frame) != count or digest(csv_path) != sha:
+        if len(frame) != count or digest(csv_path) != sha or digest(manifest_path) != manifest_sha:
             raise Phase2Error("El archivo cambió durante la lectura.")
         versions = sorted(frame.feature_version.dropna().unique().tolist())
         if versions != sorted(manifest.get("feature_versions", [])):
             raise Phase2Error("Versiones de características distintas del manifest.")
-        return LocalDataset(frame, manifest, csv_path.resolve(), sha)
+        return LocalDataset(frame, manifest, csv_path.resolve(), sha, manifest_path.resolve(), manifest_sha)
     except (pd.errors.ParserError, UnicodeError, csv.Error, json.JSONDecodeError):
         raise Phase2Error("CSV o manifest con formato inválido.") from None
 

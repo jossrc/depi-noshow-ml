@@ -23,6 +23,8 @@ src/depi_ml/
   datasets/schema.py      Contrato único de columnas y roles
   datasets/validator.py   Validaciones y estadísticas SQL
   datasets/exporter.py    Streaming COPY, verificación y publicación
+  datasets/label_exporter.py Extracción auxiliar de marcas registradas en READ ONLY
+  datasets/label_availability.py Contrato e integridad del auxiliar por cita
   analysis/               Integridad CSV, auditoría, tablas y gráficos agregados
   training/               Contrato, pipelines, cortes temporales y experimentos
   evaluation/             Métricas, curvas, permutation importance y SHAP opcional
@@ -179,5 +181,16 @@ python -m pytest -q
 La carpeta de salida debe ser nueva. Consulta [docs/phase2.md](docs/phase2.md) para los comandos exactos de entrenamiento/evaluación y los reportes que debes compartir. `analyze-dataset`, `train` y `evaluate` no cargan `.env` ni conectan a PostgreSQL.
 
 Ordenar fechas no descarta leakage. El CSV carece de timestamps de disponibilidad de etiqueta y snapshots históricos de reserva/catálogo; `train` exige evidencia metodológica vinculada al hash del dataset. No se entrena el dataset real mientras esos controles estén pendientes. Los tests entrenan solamente fixtures sintéticas pequeñas.
+
+El ajuste temporal usa un archivo auxiliar de `label_recorded_at`, vinculado por `appointment_id`, sin cambiar el CSV/manifest original ni las 19 features. `export-label-availability` consulta PostgreSQL en `REPEATABLE READ READ ONLY` y comprueba que las 27 columnas siguen coincidiendo exactamente con el CSV. `validate-label-availability` valida archivos localmente y puede previsualizar particiones sin entrenar:
+
+```bash
+depi-ml export-label-availability --output data/exports/training_dataset_v1_labels.csv
+depi-ml validate-label-availability \
+  --labels data/exports/training_dataset_v1_labels.csv \
+  --output reports/label-review-01
+```
+
+Los comandos no sobrescriben auxiliares existentes. Si hay fechas inconsistentes, se conserva el auxiliar para auditoría, los comandos devuelven código 1 con un reporte bloqueado y `train`/`evaluate` rechazan su uso. Las marcas registradas no certifican disponibilidad real. Entrenamiento y evaluación requieren `--labels` y la misma identidad SHA-256 del auxiliar y su manifest; no usan `label_delay_hours` ni una demora global. Véase [docs/phase2.md](docs/phase2.md).
 
 Los modelos generados son experimentales. Calibración operativa, validación de bandas LOW/MEDIUM/HIGH y aprobación de producción siguen pendientes. FastAPI se incorporará después en este mismo paquete y compartirá `datasets/schema.py` y el contrato/preprocesamiento de `training/preprocessing.py`; no dependerá de la tabla de entrenamiento ni de etiquetas futuras.
