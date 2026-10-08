@@ -10,7 +10,7 @@ from depi_ml.datasets.schema import PREDICTOR_COLUMNS
 REVIEW_REQUIREMENTS = {
     "history_point_in_time": "Revisar SQL completo: known_at < prediction_at, sin fila propia ni eventos futuros; auditar event_at y disponibilidad real.",
     "booking_snapshot": "Acreditar que horario, clínica, duración, sexo y líneas SCHEDULED reflejan la reserva y no modificaciones posteriores, servicios realizados o facturados.",
-    "label_availability": "Validar humanamente label_recorded_at del auxiliar: LaserGCloseDate en America/Lima para asistencias y outcome_resolved_at para no-shows. Son marcas registradas, no disponibilidad real certificada. Revisar cierres tardíos, fechas faltantes, modificaciones/ingesta y sesgo de exclusión por corte; no usar una demora global.",
+    "label_availability": "Validar humanamente label_recorded_at del auxiliar: LaserGCloseDate en America/Lima para asistencias y outcome_resolved_at para no-shows. Son marcas registradas, no disponibilidad real certificada. Revisar advertencias de cierres manuales entre reserva y cita sin atribuir causas individuales no demostradas, cierres tardíos, fechas faltantes, modificaciones/ingesta y sesgo de exclusión por corte; no usar una demora global. Las anomalías temporales críticas siguen bloqueando.",
     "catalog_snapshot": "Acreditar catálogo histórico/as-of para áreas, tipos y evaluación médica; updated_at actual no demuestra vigencia histórica.",
     "label_definition": "Validar candidatos no-show, conflictos y tracking UID -1, zona horaria y reglas de cierre; no son inasistencias confirmadas por el CSV.",
     "selection_bias": "Documentar exclusión de cancelaciones anticipadas y otras exclusiones: evaluación condicionada a población elegible, no a todas las reservas futuras.",

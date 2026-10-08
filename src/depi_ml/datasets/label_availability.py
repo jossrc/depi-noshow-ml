@@ -19,6 +19,23 @@ LABEL_DEFINITION = {
 LABEL_SEMANTICS = "Recorded timestamp proxy; requires human validation of actual label availability"
 EXPECTED_OUTCOMES = {0: "ATTENDED_COMPLETED", 1: "NO_SHOW"}
 EXPECTED_SOURCES = {0: "laser_close_date", 1: "outcome_resolved_at"}
+TEMPORAL_VALIDATION_POLICY = {
+    "version": "outcome_aware_v2",
+    "attendance_critical": "label_recorded_at <= prediction_at",
+    "attendance_operational_warning": "prediction_at < label_recorded_at < appointment_at",
+    "no_show_critical": "label_recorded_at < appointment_at",
+    "snapshot_critical": "label_recorded_at > source_snapshot_at",
+}
+
+
+def label_temporal_masks(target, recorded, prediction, appointment):
+    """Una única regla por resultado para validación y particiones; NaT no se imputa."""
+    return {
+        "attendance_recorded_at_or_before_prediction": (target == 0) & (recorded <= prediction),
+        "no_show_recorded_before_appointment": (target == 1) & (recorded < appointment),
+        "attendance_recorded_between_prediction_and_appointment": (
+            (target == 0) & (recorded > prediction) & (recorded < appointment)),
+    }
 
 
 @dataclass
@@ -99,17 +116,38 @@ def validate_label_frame(frame, dataset: LocalDataset, snapshot_at, *, strict_da
     if not joined.label_source.eq(joined.target_csv.map(EXPECTED_SOURCES)).all():
         raise Phase2Error("Origen de label_recorded_at incompatible con el target.")
     before_appointment = joined.label_recorded_at < joined.appointment_at
-    if strict_dates and before_appointment.any():
-        raise Phase2Error(f"Fechas inconsistentes: {int(before_appointment.sum())} etiquetas registradas antes de la cita; no se corrigen.")
+    masks = label_temporal_masks(joined.target_csv, joined.label_recorded_at,
+                                 joined.prediction_at, joined.appointment_at)
     snapshot = aware_timestamp(snapshot_at)
     future = joined.label_recorded_at > snapshot
-    if strict_dates and future.any():
-        raise Phase2Error(f"Fechas inconsistentes: {int(future.sum())} etiquetas posteriores a la instantánea PostgreSQL.")
+    critical = (masks["attendance_recorded_at_or_before_prediction"] |
+                masks["no_show_recorded_before_appointment"] | future)
+    # Una fila posterior a la instantánea sigue siendo crítica, incluso si su cierre es temprano.
+    operational = masks["attendance_recorded_between_prediction_and_appointment"] & ~critical
+    if strict_dates and critical.any():
+        raise Phase2Error(
+            f"Fechas inconsistentes: {int(critical.sum())} etiquetas con anomalías críticas "
+            "(asistencia anterior/simultánea a reserva, no-show antes de cita o fecha posterior "
+            "a la instantánea PostgreSQL); no se corrigen.")
     original_export = aware_timestamp(dataset.manifest.get("exported_at"))
     summary = {
         "rows": len(joined), "identifiers_match": True, "targets_match": True,
         "duplicate_identifiers": 0, "invalid_outcomes": 0,
-        "inconsistent_dates": int((before_appointment | future).sum()),
+        "temporal_validation_policy": TEMPORAL_VALIDATION_POLICY,
+        "inconsistent_dates": int(critical.sum()),
+        "inconsistent_dates_semantics": "Critical temporal rows only; operational warnings do not block",
+        "critical_temporal_errors": {
+            "rows": int(critical.sum()),
+            "attendance_recorded_at_or_before_prediction": int(masks["attendance_recorded_at_or_before_prediction"].sum()),
+            "no_show_recorded_before_appointment": int(masks["no_show_recorded_before_appointment"].sum()),
+            "recorded_after_source_snapshot": int(future.sum()),
+        },
+        "operational_warnings": {
+            "rows": int(operational.sum()),
+            "attendance_recorded_between_prediction_and_appointment": int(operational.sum()),
+            "action": "Retain rows; apply ordinary label_recorded_at cutoffs; require human review",
+            "interpretation": "Manual session closure may involve tests or administrative errors; individual causes are not established",
+        },
         "recorded_before_appointment": int(before_appointment.sum()),
         "recorded_after_source_snapshot": int(future.sum()),
         "missing_label_recorded_at": int(joined.label_recorded_at.isna().sum()),
@@ -122,6 +160,8 @@ def validate_label_frame(frame, dataset: LocalDataset, snapshot_at, *, strict_da
         lag = (part.label_recorded_at - part.appointment_at).dt.total_seconds() / 86400
         summary["classes"][str(target)] = {
             "rows": len(part), "missing": int(part.label_recorded_at.isna().sum()),
+            "critical_temporal_rows": int((critical & (joined.target_csv == target)).sum()),
+            "operational_warning_rows": int((operational & (joined.target_csv == target)).sum()),
             "recorded_before_appointment": int((part.label_recorded_at < part.appointment_at).sum()),
             "recorded_after_source_snapshot": int((part.label_recorded_at > snapshot).sum()),
             "recorded_at_or_after_dataset_export": int((part.label_recorded_at >= original_export).sum()),
@@ -130,6 +170,7 @@ def validate_label_frame(frame, dataset: LocalDataset, snapshot_at, *, strict_da
             "lag_days_max": float(lag.max()) if lag.notna().any() else None,
         }
     summary["status"] = ("blocked_inconsistent_dates" if summary["inconsistent_dates"] else
+                         "validated_with_operational_warnings" if operational.any() else
                          "validated_with_missing_labels" if summary["missing_label_recorded_at"] else "validated")
     return summary
 

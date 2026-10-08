@@ -75,6 +75,133 @@ def test_inconsistent_dates_block_training_but_remain_auditable(local_dataset, l
     assert (out / "label_availability_report.json").exists()
 
 
+@pytest.mark.parametrize("target,minutes,critical,warning", [
+    (0, -1, True, False), (0, 0, True, False),
+    (0, 30, False, True), (0, 60, False, False),
+    (1, -1, True, False), (1, 0, True, False),
+    (1, 30, True, False), (1, 60, False, False),
+])
+def test_outcome_specific_boundaries_in_validator_split_and_cli(
+        local_dataset, labels, tmp_path, target, minutes, critical, warning, capsys, caplog):
+    index = target
+    records = labels.frame.to_dict("records")
+    records[index]["label_recorded_at"] = (
+        local_dataset.frame.iloc[index].prediction_at + pd.Timedelta(minutes=minutes)).isoformat()
+    write_label_fixture(labels.source, local_dataset, records)
+    audited = load_label_availability(local_dataset, labels.source, allow_inconsistent_dates=True)
+    assert audited.summary["critical_temporal_errors"]["rows"] == int(critical)
+    assert audited.summary["operational_warnings"]["rows"] == int(warning)
+    if critical:
+        with pytest.raises(Phase2Error, match="Fechas inconsistentes"):
+            load_label_availability(local_dataset, labels.source)
+        with pytest.raises(Phase2Error, match="Fechas inconsistentes"):
+            parts(attach_labels(local_dataset, audited))
+    else:
+        accepted = load_label_availability(local_dataset, labels.source)
+        assert index in parts(attach_labels(local_dataset, accepted)).train.index
+    output = tmp_path / "boundary-report"
+    assert cli.main(["validate-label-availability", "--csv", str(local_dataset.source),
+                     "--labels", str(labels.source), "--output", str(output),
+                     "--validation-start", "2025-02-01T00:00:00Z",
+                     "--test-start", "2025-03-01T00:00:00Z",
+                     "--test-end", "2025-04-01T00:00:00Z"]) == int(critical)
+    report = json.loads((output / "label_availability_report.json").read_text())
+    assert ("temporal_split_preview" in report) == (not critical)
+    assert report["training_status"] == ("blocked_inconsistent_dates" if critical else "pending_human_review")
+    assert f"advertencias operativas: {int(warning)}" in capsys.readouterr().out
+    if warning:
+        assert "event=label_operational_warning" in caplog.text
+
+
+def test_operational_warnings_retain_all_partitions_and_do_not_verify_review(local_dataset, labels, tmp_path):
+    records = labels.frame.to_dict("records")
+    for index in [0, 30, 60]:
+        records[index]["label_recorded_at"] = (
+            local_dataset.frame.iloc[index].prediction_at + pd.Timedelta(minutes=30)).isoformat()
+    write_label_fixture(labels.source, local_dataset, records)
+    # La clasificación almacenada por una versión anterior no decide la revalidación.
+    manifest_path = labels.source.with_name(labels.source.stem + "_manifest.json")
+    manifest = json.loads(manifest_path.read_text())
+    manifest["validation"] = {"status": "blocked_inconsistent_dates", "inconsistent_dates": 3}
+    write_json(manifest_path, manifest)
+    artifacts = [local_dataset.source, local_dataset.manifest_source, labels.source, manifest_path]
+    hashes = {path: digest(path) for path in artifacts}
+    accepted = load_label_availability(local_dataset, labels.source)
+    summary = accepted.summary
+    assert summary["status"] == "validated_with_operational_warnings"
+    assert summary["inconsistent_dates"] == summary["critical_temporal_errors"]["rows"] == 0
+    assert summary["operational_warnings"]["rows"] == summary["recorded_before_appointment"] == 3
+    assert summary["classes"]["0"]["operational_warning_rows"] == 3
+    assert summary["classes"]["1"]["operational_warning_rows"] == 0
+    result = parts(attach_labels(local_dataset, accepted))
+    for name, index in [("train", 0), ("validation", 30), ("test", 60)]:
+        assert index in getattr(result, name).index
+        assert len(getattr(result, name)) == 30
+        detail = result.metadata["partitions"][name]
+        assert detail["operational_warning_rows_in_window"] == detail["retained_operational_warning_rows"] == 1
+        assert detail["excluded_labels_not_available"] == 0
+    out, report = validate_labels(local_dataset.source, None, labels.source, None, tmp_path / "warnings")
+    assert report["validation_recomputed_from_files"] is True
+    assert report["training_status"] == summary["methodological_status"] == "pending_human_review"
+    review_path = out / "methodology_review_template.json"
+    review = json.loads(review_path.read_text())
+    assert all(check["status"] == "pending" for check in review["checks"].values())
+    with pytest.raises(Phase2Error):
+        require_review(local_dataset, audit_dataset(local_dataset), review_path, accepted)
+    with pytest.raises(Phase2Error):
+        validate_labels(local_dataset.source, None, labels.source, None, out)
+    assert {path: digest(path) for path in artifacts} == hashes
+    assert len(PREDICTOR_COLUMNS) == 19 and "label_recorded_at" not in PREDICTOR_COLUMNS
+
+
+def test_warnings_never_suppress_critical_dates(local_dataset, labels, tmp_path):
+    records = labels.frame.to_dict("records")
+    records[0]["label_recorded_at"] = (local_dataset.frame.iloc[0].prediction_at + pd.Timedelta(minutes=30)).isoformat()
+    records[1]["label_recorded_at"] = (local_dataset.frame.iloc[1].prediction_at + pd.Timedelta(minutes=30)).isoformat()
+    records[2]["label_recorded_at"] = local_dataset.frame.iloc[2].prediction_at.isoformat()
+    records[3]["label_recorded_at"] = "2025-05-01T00:00:00Z"
+    write_label_fixture(labels.source, local_dataset, records)
+    with pytest.raises(Phase2Error, match="Fechas inconsistentes"):
+        load_label_availability(local_dataset, labels.source)
+    out, report = validate_labels(local_dataset.source, None, labels.source, None, tmp_path / "mixed",
+                                 "2025-02-01T00:00:00Z", "2025-03-01T00:00:00Z", "2025-04-01T00:00:00Z")
+    summary = report["validation"]
+    assert summary["critical_temporal_errors"] == {
+        "rows": 3, "attendance_recorded_at_or_before_prediction": 1,
+        "no_show_recorded_before_appointment": 1, "recorded_after_source_snapshot": 1}
+    assert summary["operational_warnings"]["rows"] == 1
+    assert summary["status"] == report["training_status"] == "blocked_inconsistent_dates"
+    assert "temporal_split_preview" not in report
+
+
+@pytest.mark.parametrize("target", [0, 1])
+def test_snapshot_limit_stays_critical_for_both_outcomes(local_dataset, labels, target):
+    records = labels.frame.to_dict("records")
+    records[target]["label_recorded_at"] = "2025-04-02T00:00:00Z"
+    write_label_fixture(labels.source, local_dataset, records)
+    assert load_label_availability(local_dataset, labels.source).summary["inconsistent_dates"] == 0
+    records[target]["label_recorded_at"] = "2025-04-02T00:00:00.000001Z"
+    write_label_fixture(labels.source, local_dataset, records)
+    with pytest.raises(Phase2Error, match="instantánea PostgreSQL"):
+        load_label_availability(local_dataset, labels.source)
+
+
+def test_warning_missing_and_late_labels_keep_independent_cutoff_rules(local_dataset, labels):
+    records = labels.frame.to_dict("records")
+    records[0]["label_recorded_at"] = (local_dataset.frame.iloc[0].prediction_at + pd.Timedelta(minutes=30)).isoformat()
+    records[2]["label_recorded_at"] = ""
+    records[4]["label_recorded_at"] = "2025-02-01T00:00:00Z"
+    write_label_fixture(labels.source, local_dataset, records)
+    accepted = load_label_availability(local_dataset, labels.source)
+    result = parts(attach_labels(local_dataset, accepted))
+    detail = result.metadata["partitions"]["train"]
+    assert 0 in result.train.index and 2 not in result.train.index and 4 not in result.train.index
+    assert detail["rows"] == 28
+    assert detail["retained_operational_warning_rows"] == 1
+    assert detail["excluded_missing_label_recorded_at"] == detail["excluded_recorded_at_or_after_cutoff"] == 1
+    assert detail["excluded_labels_not_available"] == 2
+
+
 @pytest.mark.parametrize("value", ["2025-01-05T15:00:00", "infinity", "not-a-date"])
 def test_invalid_timestamps_are_never_guessed(local_dataset, labels, value):
     records = labels.frame.to_dict("records")
@@ -203,6 +330,21 @@ def mocked_export(local_dataset, labels, monkeypatch):
 def exporter_call(dataset, output):
     settings = Settings("localhost", 5432, "fixture", "fixture", "test-only")
     return label_exporter.export_label_availability(settings, dataset.source, None, output)
+
+
+def test_operational_warning_export_report_and_cli_success(local_dataset, labels, mocked_export, tmp_path, monkeypatch):
+    records = labels.frame.to_dict("records")
+    records[0]["label_recorded_at"] = (
+        local_dataset.frame.iloc[0].prediction_at + pd.Timedelta(minutes=30)).isoformat()
+    write_label_fixture(labels.source, local_dataset, records)
+    monkeypatch.setattr(cli.Settings, "from_env", lambda: Settings("localhost", 5432, "fixture", "fixture", "test-only"))
+    output = tmp_path / "warning_labels.csv"
+    assert cli.main(["export-label-availability", "--csv", str(local_dataset.source), "--output", str(output)]) == 0
+    quality = json.loads(output.with_name(output.stem + "_quality_report.json").read_text())
+    assert quality["critical_temporal_errors"]["rows"] == 0
+    assert quality["operational_warnings"]["rows"] == 1
+    assert quality["status"] == "validated_with_operational_warnings"
+    assert len(load_label_availability(local_dataset, output).frame) == len(local_dataset.frame)
 
 
 def test_export_checks_source_and_publishes_integrity(local_dataset, mocked_export, tmp_path):

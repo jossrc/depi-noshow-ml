@@ -21,6 +21,19 @@ def _batch_size(value: str) -> int:
         raise argparse.ArgumentTypeError(str(error)) from None
 
 
+def _label_temporal_status(summary, logger):
+    """Advertencias operativas no cambian el código de salida; errores críticos sí."""
+    critical = summary["critical_temporal_errors"]["rows"]
+    operational = summary["operational_warnings"]["rows"]
+    print(f"Anomalías temporales críticas: {critical}; advertencias operativas: {operational}.")
+    if operational:
+        logger.warning("event=label_operational_warning count=%d message=Asistencias conservadas; revisión humana pendiente, causas individuales no demostradas.", operational)
+    if critical:
+        logger.error("event=label_dates_inconsistent count=%d message=Consulta el reporte agregado; entrenamiento bloqueado.", critical)
+        return 1
+    return 0
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description="Exportar, auditar y experimentar con el dataset histórico DEPI.")
     commands = result.add_subparsers(dest="command", required=True)
@@ -72,9 +85,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Auxiliar local: {labels}\nManifest: {manifest}\nCalidad: {quality}\n"
                   f"Registros: {summary['rows']}; fechas ausentes: {summary['missing_label_recorded_at']}.\n"
                   "label_recorded_at es una marca registrada; disponibilidad real pendiente de validación humana.")
-            if summary["inconsistent_dates"]:
-                logger.error("event=label_dates_inconsistent count=%d message=Auxiliar conservado para auditoría; entrenamiento bloqueado.", summary["inconsistent_dates"])
-                return 1
+            return _label_temporal_status(summary, logger)
         elif args.command in {"analyze-dataset", "train", "evaluate", "validate-label-availability"}:
             try:
                 if args.command == "analyze-dataset":
@@ -99,9 +110,7 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"Validación local: {output}\nRegistros: {report['validation']['rows']}; "
                           f"fechas ausentes: {report['validation']['missing_label_recorded_at']}.\n"
                           "No se entrenaron modelos ni se verificó automáticamente la revisión metodológica.")
-                    if report["validation"]["inconsistent_dates"]:
-                        logger.error("event=label_dates_inconsistent count=%d message=Consulta el reporte agregado; entrenamiento bloqueado.", report["validation"]["inconsistent_dates"])
-                        return 1
+                    return _label_temporal_status(report["validation"], logger)
             except ImportError:
                 raise Phase2Error("Faltan dependencias de Fase 2: instala '.[ml]' y, para SHAP, '.[explain]'.") from None
         elif args.command == "inspect-dataset":
