@@ -40,3 +40,15 @@ def test_csv_errors_are_reported_without_row_contents(monkeypatch, caplog):
     with caplog.at_level(logging.ERROR):
         assert cli.main(["export-dataset"]) == 1
     assert "personal-data" not in caplog.text
+
+
+def test_phase2_cli_never_loads_database_settings(monkeypatch, tmp_path, capsys):
+    pytest.importorskip("pandas")
+    from depi_ml.analysis import reports
+    def forbid(*args, **kwargs):
+        raise AssertionError("Fase 2 no debe leer configuración ni acceder a PostgreSQL")
+    monkeypatch.setattr(cli.Settings, "from_env", forbid)
+    monkeypatch.setattr(cli, "read_only_connection", forbid)
+    monkeypatch.setattr(reports, "analyze", lambda *args: tmp_path / "aggregate-report")
+    assert cli.main(["analyze-dataset", "--output", str(tmp_path / "report")]) == 0
+    assert "Análisis local" in capsys.readouterr().out

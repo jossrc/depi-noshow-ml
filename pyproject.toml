@@ -5,13 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "depi-noshow-ml"
 version = "0.1.0"
-description = "Exportación reproducible del dataset histórico de inasistencias DEPI"
+description = "Auditoría y experimentos temporales de inasistencias DEPI"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["psycopg[binary]>=3.2,<4", "python-dotenv>=1.0,<2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
+ml = [
+  "pandas>=2.2,<3", "numpy>=1.26,<2.3", "scikit-learn>=1.5,<2",
+  "xgboost>=2.1,<4", "matplotlib>=3.9,<4", "joblib>=1.4,<2",
+]
+explain = ["shap>=0.46,<1"]
 
 [project.scripts]
 depi-ml = "depi_ml.cli:main"
@@ -21,4 +26,3 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-

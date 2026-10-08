@@ -2,7 +2,7 @@
 
 Proyecto Python de la tesis **Sistema web predictivo basado en XGBoost y Random Forest para el pronóstico de inasistencias en una empresa del rubro de estética y cuidado personal**.
 
-La fase 1 valida y exporta la tabla analítica existente de FLOWww. La extracción usa exclusivamente PostgreSQL y archivos locales. No ejecuta ETL, modifica datos, entrena modelos ni implementa una API. Los módulos futuros se incorporarán en este mismo paquete cuando se autorice la siguiente fase.
+La Fase 1 valida y exporta la tabla analítica existente de FLOWww en una transacción de solo lectura. La Fase 2 audita ese CSV local y ofrece experimentos temporales de Random Forest y XGBoost, sujetos a una revisión metodológica acreditada. Ninguna fase reconstruye ETL ni modifica PostgreSQL. FastAPI sigue pendiente.
 
 ```text
 FLOWww → raw_flow → analytics.appointment_training_dataset_v1
@@ -17,15 +17,21 @@ FLOWww → raw_flow → analytics.appointment_training_dataset_v1
 
 ```text
 src/depi_ml/
-  cli.py                  Comandos de inspección y exportación
+  cli.py                  Inspección, exportación, análisis, entrenamiento y evaluación
   config.py               Configuración desde entorno y .env
   db/connection.py        Instantánea REPEATABLE READ de solo lectura
   datasets/schema.py      Contrato único de columnas y roles
   datasets/validator.py   Validaciones y estadísticas SQL
   datasets/exporter.py    Streaming COPY, verificación y publicación
+  analysis/               Integridad CSV, auditoría, tablas y gráficos agregados
+  training/               Contrato, pipelines, cortes temporales y experimentos
+  evaluation/             Métricas, curvas, permutation importance y SHAP opcional
 data/exports/             Archivos locales excluidos de Git
 docs/dataset_contract.md  Contrato y limitaciones metodológicas
 tests/                    Pruebas unitarias sin PostgreSQL
+reports/                  Análisis locales excluidos de Git
+experiments/              Modelos y metadatos locales excluidos de Git
+docs/phase2.md             Ejecución y controles metodológicos de Fase 2
 prompts/PROMPT.md         Especificación original
 bds/                     SQL existente del usuario; el exportador no lo ejecuta
 docker-compose.yml        PostgreSQL externo existente
@@ -33,7 +39,7 @@ docker-compose.yml        PostgreSQL externo existente
 
 ## Instalación
 
-Requiere **Python 3.12 o superior**, PostgreSQL 18.4 accesible y permisos `USAGE` del schema y `SELECT` sobre todas las columnas del contrato. Dependencias: psycopg 3 con distribución binaria y python-dotenv; pytest para desarrollo. No necesita pandas ni dependencias de entrenamiento.
+Requiere **Python 3.12 o superior**. La Fase 1 necesita PostgreSQL accesible y permisos `USAGE` del schema y `SELECT` sobre todas las columnas del contrato; sus dependencias son psycopg 3 y python-dotenv. La Fase 2 trabaja sin conexión a PostgreSQL y usa las dependencias opcionales `ml` (pandas, NumPy, scikit-learn, XGBoost, matplotlib y joblib) y `explain` (SHAP).
 
 Linux/macOS:
 
@@ -57,7 +63,7 @@ Sin activar el entorno, utiliza `.venv/bin/depi-ml` en Linux/macOS o `.\.venv\Sc
 
 ## Configuración de la base externa
 
-Edita `.env` con tus credenciales reales. El ejemplo usa `depi_noshow` y `depi_admin` según el prompt. El `docker-compose.yml` existente en este repositorio configura **`depi-noshow-db` y `admin`**; usa esos valores si trabajas con ese contenedor. No se cambia la configuración existente.
+Edita `.env` con tus credenciales reales solo si necesitas la Fase 1. README, `.env.example`, configuración Python y Compose usan **`depi-noshow-db` y `admin`** como valores predeterminados, compatibles con el contenedor existente. Compose obtiene la contraseña de `POSTGRES_PASSWORD` y publica el puerto exclusivamente en `127.0.0.1`.
 
 ```dotenv
 POSTGRES_HOST=127.0.0.1
@@ -72,6 +78,8 @@ DATASET_BATCH_SIZE=10000
 ```
 
 El CLI lee `.env` desde el directorio de ejecución; las variables del entorno tienen prioridad. Las rutas relativas también se resuelven desde ese directorio. La contraseña debe configurarse y `CHANGE_ME` se rechaza.
+
+Se conservan el nombre del contenedor y las rutas de montaje existentes. En un volumen inicializado, las variables `POSTGRES_*` **no cambian** usuarios, bases ni contraseñas ya creados: configura las credenciales que realmente tiene ese volumen. No uses `docker compose down -v`, no borres datos ni reinicialices la base. El cambio de publicación del puerto solo se aplica cuando se recrea el servicio; no es necesario hacerlo para ejecutar la Fase 2. No muestres `docker compose config` sin filtrar: puede revelar la contraseña interpolada.
 
 Python en la máquina anfitriona se conecta al **puerto publicado**, que puedes consultar sin ver credenciales:
 
@@ -156,6 +164,20 @@ El entorno `.venv-docker` es de Linux y debe utilizarse dentro del contenedor. N
 
 ## Privacidad y próximas fases
 
-`.env`, los datasets, reportes y modelos están excluidos de Git. No subas archivos de clientes ni credenciales; el Compose existente debe revisarse antes de publicarlo, porque contiene configuración sensible previa a esta implementación. El exportador no envía datos a APIs externas.
+`.env`, CSV, resultados locales y modelos están excluidos de Git. `docs/dataset_contract.md` sí se publica. No subas archivos de clientes ni credenciales. El exportador no envía datos a APIs externas. Mantén reportes y experimentos en `reports/` y `experiments/`; los destinos personalizados también deben ignorarse antes de usarlos.
 
-En futuras fases autorizadas se incorporarán Random Forest/XGBoost, división temporal, evaluación y calibración, SHAP y versionado; después, FastAPI para inferencia individual y por lotes. Se reutilizarán el contrato de features y el preprocesamiento aprendido en este mismo repositorio. Las validaciones técnicas de esta fase no acreditan aún la validez científica del dataset.
+## Fase 2 local
+
+```bash
+source .venv/bin/activate
+python -m pip install -e '.[dev,ml,explain]'
+# En macOS, XGBoost necesita OpenMP: brew install libomp
+depi-ml analyze-dataset --output reports/phase2-new
+python -m pytest -q
+```
+
+La carpeta de salida debe ser nueva. Consulta [docs/phase2.md](docs/phase2.md) para los comandos exactos de entrenamiento/evaluación y los reportes que debes compartir. `analyze-dataset`, `train` y `evaluate` no cargan `.env` ni conectan a PostgreSQL.
+
+Ordenar fechas no descarta leakage. El CSV carece de timestamps de disponibilidad de etiqueta y snapshots históricos de reserva/catálogo; `train` exige evidencia metodológica vinculada al hash del dataset. No se entrena el dataset real mientras esos controles estén pendientes. Los tests entrenan solamente fixtures sintéticas pequeñas.
+
+Los modelos generados son experimentales. Calibración operativa, validación de bandas LOW/MEDIUM/HIGH y aprobación de producción siguen pendientes. FastAPI se incorporará después en este mismo paquete y compartirá `datasets/schema.py` y el contrato/preprocesamiento de `training/preprocessing.py`; no dependerá de la tabla de entrenamiento ni de etiquetas futuras.

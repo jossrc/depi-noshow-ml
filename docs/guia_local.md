@@ -2,7 +2,7 @@
 
 Esta guía es para **probar la Fase 1** del proyecto: conectarte a PostgreSQL, validar la tabla analítica y volver a generar el dataset CSV.
 
-No se entrenan modelos. No se levanta FastAPI. No se reconstruyen tablas SQL.
+Esta guía cubre únicamente Fase 1. Para auditar el CSV existente y preparar experimentos, consulta [Fase 2](phase2.md): no requiere levantar PostgreSQL ni regenerar archivos. No se levanta FastAPI ni se reconstruyen tablas SQL.
 
 Estás en macOS. En esta máquina ya hay **Python 3.12.15** y el contenedor `depi_noshow` en el puerto **5432**.
 
@@ -118,7 +118,7 @@ Comprueba que el comando existe:
 depi-ml --help
 ```
 
-Debes ver los subcomandos `inspect-dataset` y `export-dataset`.
+Debes ver `inspect-dataset`, `export-dataset` y los comandos de Fase 2; estos últimos requieren instalar también `.[ml]`.
 
 Si aparece `command not found: depi-ml`:
 
@@ -151,7 +151,7 @@ POSTGRES_HOST=127.0.0.1
 POSTGRES_PORT=5432
 POSTGRES_DB=depi-noshow-db
 POSTGRES_USER=admin
-POSTGRES_PASSWORD=admin
+POSTGRES_PASSWORD=<tu contraseña local existente>
 
 DATASET_SCHEMA=analytics
 DATASET_TABLE=appointment_training_dataset_v1
@@ -161,7 +161,7 @@ DATASET_BATCH_SIZE=10000
 
 Notas importantes:
 
-- El `.env.example` usa otros nombres (`depi_noshow` / `depi_admin`). **Usa los de tu Docker**, no los del ejemplo.
+- `.env.example`, Python y Compose comparten los nombres predeterminados. Usa las credenciales reales del volumen existente: cambiarlas en `.env` no cambia PostgreSQL ya inicializado.
 - No dejes `POSTGRES_PASSWORD=CHANGE_ME`; el CLI lo rechaza.
 - No subas `.env` a Git.
 - Ejecuta siempre los comandos desde la **raíz del repositorio**, porque el CLI busca `.env` ahí.
@@ -261,8 +261,7 @@ Comprobaciones rápidas:
 wc -l data/exports/training_dataset_v1.csv
 # Esperado: 213874  (1 línea de header + 213873 registros)
 
-# Primeras líneas
-head -n 3 data/exports/training_dataset_v1.csv
+# No muestres filas de clientes en logs o capturas compartidas.
 ```
 
 El hash del CSV debe coincidir con el manifest:

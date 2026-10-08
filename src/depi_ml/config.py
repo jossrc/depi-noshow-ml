@@ -54,8 +54,8 @@ class Settings:
         return cls(
             host=required("POSTGRES_HOST", "127.0.0.1"),
             port=positive_integer(required("POSTGRES_PORT", "5432"), "POSTGRES_PORT", 65535),
-            database=required("POSTGRES_DB", "depi_noshow"),
-            user=required("POSTGRES_USER", "depi_admin"),
+            database=required("POSTGRES_DB", "depi-noshow-db"),
+            user=required("POSTGRES_USER", "admin"),
             password=password,
             schema=required("DATASET_SCHEMA", "analytics"),
             table=required("DATASET_TABLE", "appointment_training_dataset_v1"),

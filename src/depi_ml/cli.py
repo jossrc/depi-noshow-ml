@@ -1,4 +1,4 @@
-"""Interfaz de comandos de la fase 1."""
+"""Comandos de exportación y experimentos locales; dependencias ML bajo demanda."""
 
 import argparse
 import csv
@@ -11,6 +11,7 @@ from depi_ml.config import ConfigurationError, Settings, positive_integer
 from depi_ml.db.connection import read_only_connection
 from depi_ml.datasets.exporter import ExportError, export_dataset
 from depi_ml.datasets.validator import DatasetValidationError, inspect_dataset, report_json
+from depi_ml.errors import Phase2Error
 
 
 def _batch_size(value: str) -> int:
@@ -21,13 +22,31 @@ def _batch_size(value: str) -> int:
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(description="Validar y exportar el dataset histórico DEPI.")
+    result = argparse.ArgumentParser(description="Exportar, auditar y experimentar con el dataset histórico DEPI.")
     commands = result.add_subparsers(dest="command", required=True)
     commands.add_parser("inspect-dataset", help="Validar estructura y estadísticas sin exportar.")
     export = commands.add_parser("export-dataset", help="Exportar todas las filas y reportes.")
     export.add_argument("--output", type=Path, help="Ruta CSV de salida.")
     export.add_argument("--batch-size", type=_batch_size,
                         help="Bytes del buffer local COPY; también intervalo de filas del log de verificación.")
+    analyze = commands.add_parser("analyze-dataset", help="Auditar CSV y manifest locales sin PostgreSQL.")
+    train = commands.add_parser("train", help="Entrenar con revisión acreditada y reservar prueba temporal.")
+    evaluate = commands.add_parser("evaluate", help="Evaluar la prueba reservada de un experimento local propio.")
+    for command in [analyze, train, evaluate]:
+        command.add_argument("--csv", type=Path, default=Path("data/exports/training_dataset_v1.csv"))
+        command.add_argument("--manifest", type=Path, help="Por defecto, <nombre_csv>_manifest.json.")
+        command.add_argument("--output", type=Path, required=True, help="Carpeta nueva fuera de data/exports.")
+    analyze.add_argument("--timezone", default="America/Lima")
+    analyze.add_argument("--min-group", type=_batch_size, default=10)
+    train.add_argument("--review", type=Path, help="JSON de revisión con evidencia, ligado al hash del CSV.")
+    for name in ["validation-start", "test-start", "test-end"]:
+        train.add_argument(f"--{name}", required=True, help="ISO 8601 con zona explícita; corte por fecha de reserva.")
+    train.add_argument("--seed", type=int, default=42)
+    train.add_argument("--threshold", type=float, default=.5, help="Umbral diagnóstico fijado antes de evaluar prueba.")
+    train.add_argument("--min-group", type=_batch_size, default=30)
+    train.add_argument("--importance-samples", type=_batch_size, default=2000)
+    evaluate.add_argument("--experiment", type=Path, required=True)
+    evaluate.add_argument("--shap", action="store_true", help="Agregar importancias SHAP agregadas; requiere .[explain].")
     return result
 
 
@@ -36,19 +55,37 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s level=%(levelname)s %(message)s")
     logger = logging.getLogger(__name__)
     try:
-        settings = Settings.from_env()
-        if args.command == "inspect-dataset":
+        if args.command in {"analyze-dataset", "train", "evaluate"}:
+            try:
+                if args.command == "analyze-dataset":
+                    from depi_ml.analysis.reports import analyze
+                    output = analyze(args.csv, args.manifest, args.output, args.timezone, args.min_group)
+                    print(f"Análisis local: {output}\nRevisa audit.json y methodology.md; entrenamiento pendiente de revisión metodológica.")
+                elif args.command == "train":
+                    from depi_ml.training.experiments import train
+                    output = train(args.csv, args.manifest, args.output, args.review, args.validation_start,
+                                   args.test_start, args.test_end, args.seed, args.threshold, args.min_group, args.importance_samples)
+                    print(f"Experimento local: {output}\nValidación completada; prueba reservada para evaluate. Modelos experimentales.")
+                else:
+                    from depi_ml.evaluation.runner import evaluate
+                    output = evaluate(args.csv, args.manifest, args.experiment, args.output, args.shap)
+                    print(f"Evaluación de prueba: {output}\nResultados experimentales; no constituyen aprobación de producción.")
+            except ImportError:
+                raise Phase2Error("Faltan dependencias de Fase 2: instala '.[ml]' y, para SHAP, '.[explain]'.") from None
+        elif args.command == "inspect-dataset":
+            settings = Settings.from_env()
             logger.info("event=inspection_start")
             with read_only_connection(settings) as connection:
                 report = inspect_dataset(connection, settings)
             print(report_json(report), end="")
             logger.info("event=inspection_complete rows=%d", report["statistics"]["row_count"])
         else:
+            settings = Settings.from_env()
             result = export_dataset(settings, args.output, args.batch_size)
             print(f"Exportación completada: {result.row_count} filas, {result.size_bytes} bytes.\n"
                   f"Asistencias: {result.attended_count}; candidatos no-show: {result.no_show_count}.\n"
                   f"CSV: {result.csv_path}\nManifest: {result.manifest_path}\nCalidad: {result.quality_path}")
-    except (ConfigurationError, DatasetValidationError, ExportError) as error:
+    except (ConfigurationError, DatasetValidationError, ExportError, Phase2Error) as error:
         logger.error("event=validation_failed message=%s", str(error))
         return 1
     except psycopg.Error as error:

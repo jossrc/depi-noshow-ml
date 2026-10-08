@@ -8,6 +8,8 @@ from depi_ml.config import ConfigurationError, Settings
 def test_defaults_and_password_redaction():
     settings = Settings.from_env({"POSTGRES_PASSWORD": "unit-test-secret"}, env_file=None)
     assert settings.port == 5432
+    assert settings.database == "depi-noshow-db"
+    assert settings.user == "admin"
     assert settings.schema == "analytics"
     assert settings.export_dir == Path("data/exports")
     assert "unit-test-secret" not in repr(settings)
