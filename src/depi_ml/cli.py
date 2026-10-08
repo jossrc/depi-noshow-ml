@@ -60,6 +60,8 @@ def parser() -> argparse.ArgumentParser:
     analyze.add_argument("--timezone", default="America/Lima")
     analyze.add_argument("--min-group", type=_batch_size, default=10)
     train.add_argument("--review", type=Path, help="JSON de revisión con evidencia, ligado al hash del CSV.")
+    train.add_argument("--exploratory", action="store_true",
+                       help="Permitir controles metodológicos pendientes; solo entrenamiento/validación, EXPLORATORY_NOT_VALIDATED.")
     for name in ["validation-start", "test-start", "test-end"]:
         train.add_argument(f"--{name}", required=True, help="ISO 8601 con zona explícita; corte por fecha de reserva.")
     train.add_argument("--seed", type=int, default=42)
@@ -96,8 +98,13 @@ def main(argv: list[str] | None = None) -> int:
                     from depi_ml.training.experiments import train
                     output = train(args.csv, args.manifest, args.output, args.review, args.validation_start,
                                    args.test_start, args.test_end, args.seed, args.threshold, args.min_group, args.importance_samples,
-                                   labels_path=args.labels, labels_manifest_path=args.labels_manifest)
-                    print(f"Experimento local: {output}\nValidación completada; prueba reservada para evaluate. Modelos experimentales.")
+                                   labels_path=args.labels, labels_manifest_path=args.labels_manifest,
+                                   exploratory=args.exploratory)
+                    if args.exploratory:
+                        print(f"Experimento local: {output}\nEXPLORATORY_NOT_VALIDATED: validación exploratoria completada; "
+                              "prueba reservada y bloqueada para evaluate. Revisión metodológica pendiente.")
+                    else:
+                        print(f"Experimento local: {output}\nValidación completada; prueba reservada para evaluate. Modelos experimentales.")
                 elif args.command == "evaluate":
                     from depi_ml.evaluation.runner import evaluate
                     output = evaluate(args.csv, args.manifest, args.experiment, args.output, args.shap,

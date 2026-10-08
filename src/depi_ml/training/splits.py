@@ -22,11 +22,12 @@ def utc_timestamp(value):
 class TemporalSplit:
     train: pd.DataFrame
     validation: pd.DataFrame
-    test: pd.DataFrame
+    test: pd.DataFrame | None
     metadata: dict
 
 
-def temporal_split(frame, validation_start, test_start, test_end, labels_observed_until, *, require_both_classes=True):
+def temporal_split(frame, validation_start, test_start, test_end, labels_observed_until, *, require_both_classes=True,
+                   include_test=True):
     val, test, end, observed = map(utc_timestamp, [validation_start, test_start, test_end, labels_observed_until])
     if not val < test < end:
         raise Phase2Error("Se requiere validation_start < test_start < test_end.")
@@ -50,6 +51,14 @@ def temporal_split(frame, validation_start, test_start, test_end, labels_observe
     partitions, details = {}, {}
     for name, mask in masks.items():
         retained = mask & (known < cutoffs[name])
+        if name == "test" and not include_test:
+            # Solo conteos de integridad temporal; no materializar X/y de prueba.
+            partitions[name] = None
+            details[name] = {
+                "status": "reserved_not_materialized", "bookings_in_window": int(mask.sum()),
+                "rows": int(retained.sum()), "label_cutoff_exclusive": cutoffs[name].isoformat(),
+            }
+            continue
         subset = frame.loc[retained].sort_values("prediction_at", kind="stable").copy()
         if require_both_classes and (subset.empty or subset.target.nunique() != 2):
             raise Phase2Error(f"Partición {name} vacía o con una sola clase tras purgar etiquetas inmaduras.")
@@ -72,14 +81,15 @@ def temporal_split(frame, validation_start, test_start, test_end, labels_observe
             "max_label_recorded_at": known.loc[retained].max().isoformat() if len(subset) else None,
             "label_cutoff_exclusive": cutoffs[name].isoformat(),
         }
-    client_sets = {name: set(part.client_id) for name, part in partitions.items()}
+    client_sets = {name: set(part.client_id) for name, part in partitions.items() if part is not None}
     metadata = {
         "split_by": "prediction_at", "validation_start": val.isoformat(), "test_start": test.isoformat(),
         "test_end": end.isoformat(), "labels_observed_until": observed.isoformat(),
         "label_availability_policy": "label_recorded_at strictly before cutoff; recorded timestamp proxy subject to human validation",
         "temporal_validation_policy": TEMPORAL_VALIDATION_POLICY,
         "partitions": details, "outside_booking_windows": int((frame.prediction_at >= end).sum()),
-        "client_overlap_train_test": len(client_sets["train"] & client_sets["test"]),
+        "test_partition_materialized": include_test,
+        "client_overlap_train_test": len(client_sets["train"] & client_sets["test"]) if include_test else None,
         "client_overlap_train_validation": len(client_sets["train"] & client_sets["validation"]),
         "scope": "Reservas de clientes nuevos y recurrentes; no estima generalización exclusiva a clientes nuevos.",
     }

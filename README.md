@@ -180,7 +180,7 @@ python -m pytest -q
 
 La carpeta de salida debe ser nueva. Consulta [docs/phase2.md](docs/phase2.md) para los comandos exactos de entrenamiento/evaluación y los reportes que debes compartir. `analyze-dataset`, `train` y `evaluate` no cargan `.env` ni conectan a PostgreSQL.
 
-Ordenar fechas no descarta leakage. El CSV carece de timestamps de disponibilidad de etiqueta y snapshots históricos de reserva/catálogo; `train` exige evidencia metodológica vinculada al hash del dataset. No se entrena el dataset real mientras esos controles estén pendientes. Los tests entrenan solamente fixtures sintéticas pequeñas.
+Ordenar fechas no descarta leakage. El CSV carece de timestamps de disponibilidad de etiqueta y snapshots históricos de reserva/catálogo; `train` sin `--exploratory` exige evidencia metodológica vinculada al hash del dataset. El modo explícito `train --exploratory` permite controles metodológicos pendientes, mantiene todos los controles técnicos y entrena/evalúa exclusivamente entrenamiento y validación. Registra `EXPLORATORY_NOT_VALIDATED`, los controles pendientes y sus limitaciones, sin verificar ni modificar la plantilla. La prueba no se materializa para modelado y `evaluate` rechaza estos experimentos. Los tests usan solamente fixtures sintéticas pequeñas.
 
 El ajuste temporal usa un archivo auxiliar de `label_recorded_at`, vinculado por `appointment_id`, sin cambiar el CSV/manifest original ni las 19 features. `export-label-availability` consulta PostgreSQL en `REPEATABLE READ READ ONLY` y comprueba que las 27 columnas siguen coincidiendo exactamente con el CSV. `validate-label-availability` valida archivos localmente y puede previsualizar particiones sin entrenar:
 

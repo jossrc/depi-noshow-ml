@@ -130,6 +130,32 @@ cp reports/label-review-01/methodology_review_template.json methodology_review.l
 
 En `checks`, historia, reserva, disponibilidad, catálogo, definición de etiquetas y estabilidad temporal requieren `status: "verified"`; selección y semántica requieren `verified` o `acknowledged`, con evidencia y limitaciones en ambos casos. `reviewed_at` usa ISO 8601 con zona. Los campos `label_availability_sha256` y `label_availability_manifest_sha256` deben corresponder a los archivos revisados. La plantilla creada por `analyze-dataset`, sin auxiliar, deja esos hashes vacíos; utiliza la plantilla de `validate-label-availability`. El código conserva la revisión con los artefactos. No se verifican estados automáticamente por tener un archivo íntegro.
 
+## Entrenamiento exploratorio explícito
+
+PROMPT5 autoriza una primera ejecución sobre entrenamiento y validación aun con revisión metodológica pendiente. Se activa exclusivamente con `--exploratory`; sin esta opción el bloqueo metodológico continúa vigente. No se modifican datos, predictoras, ETL, PostgreSQL ni estados de la plantilla.
+
+```bash
+.venv/bin/depi-ml train --exploratory \
+  --csv data/exports/training_dataset_v1.csv \
+  --labels data/exports/training_dataset_v1_labels.csv \
+  --review reports/phase2-labels-prompt4-20261008/methodology_review_template.json \
+  --validation-start 2026-04-01T00:00:00-05:00 \
+  --test-start 2026-07-01T00:00:00-05:00 \
+  --test-end 2026-10-01T00:00:00-05:00 \
+  --seed 42 \
+  --output experiments/phase2-exploratory-prompt5-20261008
+```
+
+La carpeta de salida debe ser nueva. `--review` es opcional en este modo: si falta, se registra una revisión sin responsable/fecha y con los ocho controles pendientes. Si se proporciona, se verifica su vinculación al dataset y auxiliar, se conserva una copia de sus declaraciones y su hash, sin modificar el original ni certificar evidencia. Las declaraciones sin firma/evidencia suficiente se registran como pendientes. Esto no permite entrenamiento definitivo.
+
+Siguen siendo obligatorios hashes, contrato, tipos, correspondencia exacta del auxiliar, resultados, fechas críticas y coherencia observable del historial. Se verifican las fuentes nuevamente al terminar. Las verificaciones técnicas recorren el CSV completo para detectar inconsistencias; los análisis descriptivos de etiquetas y el modelado se limitan a reservas anteriores a `test_start`. Se exige ambas clases en entrenamiento y validación, purgando etiquetas ausentes o no anteriores al corte; los cierres manuales entre reserva y cita siguen siendo advertencias. La prueba solo tiene conteos de reserva/integridad temporal, su dataframe no se materializa y no se usa en ajuste, predicciones, métricas, importancias ni selección. `evaluate` rechaza cualquier artefacto marcado exploratorio antes de cargar modelos o crear particiones de prueba; aportar después una revisión no habilita su evaluación.
+
+Se ajustan baseline, Random Forest y XGBoost con los mismos hiperparámetros y cuatro experimentos existentes (`full`, `without_is_fwa`, `without_catalog`, `without_uid_minus_one`), dando doce modelos. El preprocesamiento y los pesos se estiman solo con entrenamiento. Se utiliza semilla 42 y umbral diagnóstico fijo 0,5; no se ajustan umbrales operativos ni se selecciona modelo definitivo.
+
+`experiment.json`, `audit.json`, `review.json`, las métricas y los reportes registran `EXPLORATORY_NOT_VALIDATED`. Los metadatos incluyen controles pendientes, instrucciones/limitaciones, identidad del código/datos/modelos, hiperparámetros, versiones y cortes. Cada carpeta `validation/` contiene `report_context.json`, métricas, curvas, diagnósticos agregados e importancias; CSV y gráficos también identifican la condición exploratoria. Las comparaciones de los doce modelos están en `validation_comparison.json`, `.csv` y `.md`, siempre con baseline y ROC-AUC, PR-AUC (average precision), recall, precision, F1 y Brier. El archivo `.md` incluye las limitaciones. `experiment.json` se escribe únicamente al finalizar todos los modelos y verificar las fuentes.
+
+Los resultados no acreditan disponibilidad histórica real de features/etiquetas, snapshots de reserva/catálogo, validez de candidatos no-show, semántica operativa ni estabilidad temporal. La población sigue condicionada por elegibilidad/cancelaciones y la purga por madurez puede introducir selección diferencial. Retirar filas UID -1 no reconstruye el historial del ETL. Pesos de clase pueden distorsionar probabilidades; Brier y la curva de confiabilidad son diagnósticos, sin calibración operativa. La comparación corresponde a validación y no prueba rendimiento sobre el período reservado o producción.
+
 ## Entrenar después de superar controles
 
 Estos cortes son un **protocolo candidato**, que debe justificarse frente a las alertas y cobertura observadas antes de ejecutarlo; no resuelven el cambio de etiquetas:
@@ -146,7 +172,7 @@ depi-ml train \
   --output experiments/phase2-01
 ```
 
-El comando falla sin auxiliar técnicamente coherente y revisión acreditada. Divide por **momento de reserva**, no por fecha de cita ni al azar, y mantiene el orden cronológico por `prediction_at`:
+Sin `--exploratory`, el comando falla sin auxiliar técnicamente coherente y revisión acreditada. Divide por **momento de reserva**, no por fecha de cita ni al azar, y mantiene el orden cronológico por `prediction_at`:
 
 | Partición | Reservas | Marca registrada de etiqueta |
 | --- | --- | --- |
@@ -164,9 +190,11 @@ Se entrenan Random Forest, XGBoost y baseline de probabilidad constante igual a 
 
 Sensibilidades obligatorias: `without_is_fwa`, `without_catalog` (sin áreas/tipos/evaluación médica) y `without_uid_minus_one` (excluye filas candidatas UID -1 de todas las particiones). La exclusión de filas UID -1 **no reconstruye** su contribución en el historial previo de otras citas: el experimento no equivale a retirar esas etiquetas de todo el ETL.
 
-Cada ejecución contiene `experiment.json`, `audit.json`, `review.json`, `validation_comparison.json` y, por modelo/experimento, `model.joblib` y reportes `validation/`. Los metadatos incluyen hash/versiones del dataset, hashes exactos del auxiliar y su manifest, hash del código y modelo, contrato y variables efectivas, hiperparámetros, versiones del entorno, semilla, particiones y métricas. `artifact_format_version` pasa a 2: experimentos anteriores basados en demora global no son compatibles con la evaluación nueva. `experiment.json` se escribe solo al finalizar los doce modelos; una carpeta parcial no es un experimento terminado.
+Cada ejecución contiene `experiment.json`, `audit.json`, `review.json`, `validation_comparison.json`/`.csv`/`.md` y, por modelo/experimento, `model.joblib` y reportes `validation/`. Los metadatos incluyen hash/versiones del dataset, hashes exactos del auxiliar y su manifest, hash del código y modelo, contrato y variables efectivas, hiperparámetros, versiones del entorno, semilla, particiones y métricas. `artifact_format_version` pasa a 2: experimentos anteriores basados en demora global no son compatibles con la evaluación nueva. `experiment.json` se escribe solo al finalizar los doce modelos; una carpeta parcial no es un experimento terminado.
 
 ## Evaluar una vez el período reservado
+
+Este comando exige un entrenamiento con revisión acreditada y **rechaza experimentos exploratorios**. PROMPT5 mantiene la prueba reservada: no ejecutar esta etapa para los resultados exploratorios.
 
 ```bash
 depi-ml evaluate \

@@ -12,6 +12,7 @@ from depi_ml.datasets.label_availability import attach_labels, load_label_availa
 from depi_ml.evaluation.reports import evaluate_partition
 from depi_ml.training.experiments import EXPERIMENTS, check_options, experiment_frame, source_hash, versions
 from depi_ml.training.review import require_review
+from depi_ml.training.review import EXPLORATORY_WARNING
 from depi_ml.training.splits import temporal_split, utc_timestamp
 
 
@@ -22,6 +23,9 @@ def evaluate(csv_path, manifest_path, experiment_path, output, explain=False, *,
         metadata = json.loads((root / "experiment.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         raise Phase2Error("Experimento local incompleto o inexistente.") from None
+    if (metadata.get("training_mode") == "exploratory" or metadata.get("status") == EXPLORATORY_WARNING or
+            metadata.get("test_status") == "reserved_exploratory_evaluation_forbidden"):
+        raise Phase2Error("EXPLORATORY_NOT_VALIDATED: evaluate no puede utilizar la prueba reservada de un experimento exploratorio.")
     if metadata.get("artifact_format_version") != 2 or metadata.get("dataset_sha256") != dataset.sha256:
         raise Phase2Error("Versión de artefacto o hash del dataset incompatible.")
     if metadata.get("predictor_contract") != PREDICTOR_COLUMNS:

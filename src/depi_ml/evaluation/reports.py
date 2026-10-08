@@ -10,11 +10,23 @@ from depi_ml.analysis.reports import plotting
 from depi_ml.evaluation.metrics import binary_metrics
 
 
-def evaluate_partition(pipeline, frame, output, features, threshold=.5, min_group=30, importance_samples=2000, seed=42, timezone="America/Lima", explain=False):
+def evaluate_partition(pipeline, frame, output, features, threshold=.5, min_group=30, importance_samples=2000, seed=42,
+                       timezone="America/Lima", explain=False, *, report_context=None):
     output.mkdir(parents=True, exist_ok=False)
+    context = report_context or {}
+    marker = {key: context[key] for key in ["status", "evaluation_partition"] if key in context}
+    if context:
+        write_json(output / "report_context.json", context)
+
+    def save_table(table, name):
+        table.assign(**marker).to_csv(output / name, index=False)
+
+    def save_json(name, data):
+        write_json(output / name, {**data, **marker})
+
     X, y = frame.loc[:, features], frame.target.to_numpy(dtype=int)
     probability = pipeline.predict_proba(X)[:, 1]
-    metrics = binary_metrics(y, probability, threshold)
+    metrics = {**binary_metrics(y, probability, threshold), **context}
     write_json(output / "metrics.json", metrics)
     table = pd.DataFrame({"clinic_id": frame.clinic_id.to_numpy(),
                           "period": frame.appointment_at.dt.tz_convert(timezone).dt.strftime("%Y-%m").to_numpy(),
@@ -23,7 +35,7 @@ def evaluate_partition(pipeline, frame, output, features, threshold=.5, min_grou
     for group in ["clinic_id", "period"]:
         for key, part in table.groupby(group, dropna=False):
             if len(part) >= min_group:
-                subgroups.append({"group": group, "value": str(key), **binary_metrics(part.target, part.probability, threshold)})
+                subgroups.append({"group": group, "value": str(key), **binary_metrics(part.target, part.probability, threshold), **marker})
     write_json(output / "subgroups.json", subgroups)
     bins = np.linspace(0, 1, 21)
     hist = []
@@ -31,7 +43,7 @@ def evaluate_partition(pipeline, frame, output, features, threshold=.5, min_grou
         counts, _ = np.histogram(probability[y == target], bins)
         for i, count in enumerate(counts):
             hist.append({"target": target, "lower": float(bins[i]), "upper": float(bins[i + 1]), "count": int(count)})
-    pd.DataFrame(hist).to_csv(output / "probability_distribution.csv", index=False)
+    save_table(pd.DataFrame(hist), "probability_distribution.csv")
     plt = plotting()
     for name in ["roc", "precision_recall", "probabilities", "calibration"]:
         fig, ax = plt.subplots()
@@ -40,13 +52,13 @@ def evaluate_partition(pipeline, frame, output, features, threshold=.5, min_grou
             ax.plot(fpr, tpr)
             ax.plot([0, 1], [0, 1], "--", color="grey")
             ax.set(xlabel="False positive rate", ylabel="True positive rate")
-            pd.DataFrame({"fpr": fpr, "tpr": tpr}).to_csv(output / "roc.csv", index=False)
+            save_table(pd.DataFrame({"fpr": fpr, "tpr": tpr}), "roc.csv")
         elif name == "precision_recall":
             precision, recall, _ = precision_recall_curve(y, probability)
             ax.plot(recall, precision)
             ax.axhline(y.mean(), linestyle="--", color="grey")
             ax.set(xlabel="Recall", ylabel="Precision")
-            pd.DataFrame({"recall": recall, "precision": precision}).to_csv(output / "precision_recall.csv", index=False)
+            save_table(pd.DataFrame({"recall": recall, "precision": precision}), "precision_recall.csv")
         elif name == "probabilities":
             for target in [0, 1]:
                 ax.hist(probability[y == target], bins=bins, alpha=.5, label=str(target))
@@ -59,11 +71,13 @@ def evaluate_partition(pipeline, frame, output, features, threshold=.5, min_grou
                 mask = (probability >= i / 10) & ((probability < (i + 1) / 10) if i < 9 else (probability <= 1))
                 if int(mask.sum()) >= min_group:
                     cells.append({"mean_probability": float(probability[mask].mean()), "observed_rate": float(y[mask].mean()), "rows": int(mask.sum())})
-            pd.DataFrame(cells, columns=["mean_probability", "observed_rate", "rows"]).to_csv(output / "calibration.csv", index=False)
+            save_table(pd.DataFrame(cells, columns=["mean_probability", "observed_rate", "rows"]), "calibration.csv")
             if cells:
                 ax.plot([r["mean_probability"] for r in cells], [r["observed_rate"] for r in cells], marker="o")
             ax.plot([0, 1], [0, 1], "--", color="grey")
             ax.set(xlabel="Probabilidad media", ylabel="Frecuencia observada")
+        if marker:
+            ax.set_title(f"{marker['status']}\n{marker.get('evaluation_partition', '')}", fontsize=9)
         fig.tight_layout()
         fig.savefig(output / f"{name}.png")
         plt.close(fig)
@@ -71,15 +85,15 @@ def evaluate_partition(pipeline, frame, output, features, threshold=.5, min_grou
     if sample.target.nunique() == 2 and not pipeline.named_steps["model"].__class__.__name__.startswith("Dummy"):
         result = permutation_importance(pipeline, sample.loc[:, features], sample.target.astype(int),
                                         scoring="average_precision", n_repeats=5, random_state=seed, n_jobs=1)
-        pd.DataFrame({"variable": features, "mean_ap_decrease": result.importances_mean,
-                      "std_ap_decrease": result.importances_std}).to_csv(output / "permutation_importance.csv", index=False)
-        write_json(output / "importance_metadata.json", {"scoring": "average_precision", "samples": len(sample), "repeats": 5,
+        save_table(pd.DataFrame({"variable": features, "mean_ap_decrease": result.importances_mean,
+                      "std_ap_decrease": result.importances_std}), "permutation_importance.csv")
+        save_json("importance_metadata.json", {"scoring": "average_precision", "samples": len(sample), "repeats": 5,
                    "seed": seed, "warning": "Correlación entre variables puede reducir/redistribuir importancias; no son causales."})
         if explain:
             shap_sample = sample.sample(n=min(200, len(sample)), random_state=seed)
             shap_importance(pipeline, shap_sample.loc[:, features], output)
     else:
-        write_json(output / "importance_metadata.json", {"status": "skipped", "reason": "Baseline trivial o muestra con una sola clase."})
+        save_json("importance_metadata.json", {"status": "skipped", "importance_status": "skipped", "reason": "Baseline trivial o muestra con una sola clase."})
     return metrics
 
 

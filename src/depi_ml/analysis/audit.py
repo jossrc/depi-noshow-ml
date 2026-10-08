@@ -22,7 +22,7 @@ VERIFIED_REQUIREMENTS = {
 }
 
 
-def audit_dataset(dataset: LocalDataset, timezone: str = "America/Lima") -> dict:
+def audit_dataset(dataset: LocalDataset, timezone: str = "America/Lima", *, descriptive_before=None) -> dict:
     try:
         ZoneInfo(timezone)
     except (ZoneInfoNotFoundError, ValueError, TypeError):
@@ -95,7 +95,8 @@ def audit_dataset(dataset: LocalDataset, timezone: str = "America/Lima") -> dict
         "UID -1 se compara como subgrupo de auditoría; diferencias descriptivas no validan la etiqueta ni identifican un efecto causal.",
         "Cambios mensuales pueden reflejar mezcla de clínicas, estacionalidad, meses incompletos o reglas; no prueban concept drift.",
     ])
-    monthly = df.assign(period=local.dt.strftime("%Y-%m")).groupby("period").target.agg(["size", "mean"])
+    descriptive = df if descriptive_before is None else df.loc[df.prediction_at < descriptive_before]
+    monthly = descriptive.assign(period=local.loc[descriptive.index].dt.strftime("%Y-%m")).groupby("period").target.agg(["size", "mean"])
     previous_rate, previous_size = monthly["mean"].shift(), monthly["size"].shift()
     se = np.sqrt(monthly["mean"] * (1 - monthly["mean"]) / monthly["size"] + previous_rate * (1 - previous_rate) / previous_size)
     flags = (monthly["size"] >= 100) & (previous_size >= 100) & ((monthly["mean"] - previous_rate).abs() >= .05) & ((monthly["mean"] - previous_rate).abs() > 5 * se)
@@ -107,13 +108,15 @@ def audit_dataset(dataset: LocalDataset, timezone: str = "America/Lima") -> dict
     identical = []
     for i, first in enumerate(PREDICTOR_COLUMNS):
         for second in PREDICTOR_COLUMNS[i + 1:]:
-            if df[first].equals(df[second]):
+            if descriptive[first].equals(descriptive[second]):
                 identical.append([first, second])
     if identical:
         warnings.append("Existen predictoras idénticas en el CSV; revisar redundancia e interpretar con cautela permutation importance y SHAP.")
     return {
         "dataset_sha256": dataset.sha256, "feature_versions": dataset.manifest["feature_versions"],
         "rows": len(df), "timezone": timezone, "predictors": list(PREDICTOR_COLUMNS),
+        "technical_check_scope": "all_original_rows_integrity_only",
+        "descriptive_scope": "all_rows" if descriptive_before is None else f"prediction_at < {descriptive_before.isoformat()}",
         "csv_checks": checks, "hard_blockers": blockers, "warnings": warnings,
         "training_status": "blocked_pending_methodological_review",
         "pending_review": REVIEW_REQUIREMENTS,
