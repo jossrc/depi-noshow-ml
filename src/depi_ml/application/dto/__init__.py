@@ -1,0 +1,1 @@
+"""DTOs independientes de FastAPI."""

@@ -1,6 +1,6 @@
 # Fase 2: análisis y experimentos locales
 
-Todo permanece en `depi-noshow-ml`. No se reconstruye la Fase 1 ni se implementa FastAPI. `analyze-dataset`, `validate-label-availability`, `train` y `evaluate` trabajan con archivos locales y no leen configuración de conexión. `export-label-availability` obtiene un auxiliar nuevo usando la transacción PostgreSQL `REPEATABLE READ READ ONLY` existente. Ningún comando nuevo modifica tablas, Docker, el CSV/manifest original o las 19 variables predictoras.
+Todo permanece en `depi-noshow-ml`. Los comandos de Fase 2 conservan su alcance offline; la API opcional se documenta por separado en [api_operations.md](api_operations.md). `analyze-dataset`, `validate-label-availability`, `train` y `evaluate` trabajan con archivos locales y no leen configuración de conexión. `export-label-availability` obtiene un auxiliar nuevo usando la transacción PostgreSQL `REPEATABLE READ READ ONLY` existente. Ningún comando nuevo modifica tablas, Docker, el CSV/manifest original o las 19 variables predictoras.
 
 ## Ejecutar primero la auditoría
 
@@ -261,7 +261,7 @@ Para este ajuste, comparte también `label_availability_report.json` y el `*_lab
 
 Solo cuando se autorice científicamente el experimento, comparte `experiment.json`, `validation_comparison.json`, `test_comparison.json`, métricas por subgrupo y gráficos/importancias agregadas. No compartas CSV fuente, modelos, `.env` ni registros individuales. Mantén los destinos bajo `reports/` y `experiments/`, ignorados por Git; una ruta personalizada requiere su propia regla de exclusión.
 
-Los artefactos son **experimentales y no listos para producción**. El futuro FastAPI deberá construir features point-in-time de citas futuras desde PostgreSQL y aplicar este contrato/preprocesamiento sin consultar `target`, la tabla de entrenamiento ni información posterior a la predicción.
+Los artefactos son **experimentales y no listos para producción**. El futuro Fastify deberá construir features point-in-time de citas futuras desde PostgreSQL. FastAPI recibe únicamente esas features y aplica el pipeline guardado sin consultar `target`, PostgreSQL, la tabla de entrenamiento ni información posterior a la predicción.
 
 ## Referencias técnicas
 

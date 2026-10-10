@@ -2,7 +2,7 @@
 
 Proyecto Python de la tesis **Sistema web predictivo basado en XGBoost y Random Forest para el pronóstico de inasistencias en una empresa del rubro de estética y cuidado personal**.
 
-La Fase 1 valida y exporta la tabla analítica existente de FLOWww en una transacción de solo lectura. La Fase 2 audita ese CSV local y ofrece experimentos temporales de Random Forest y XGBoost, sujetos a una revisión metodológica acreditada. Ninguna fase reconstruye ETL ni modifica PostgreSQL. FastAPI sigue pendiente.
+La Fase 1 valida y exporta la tabla analítica existente de FLOWww en una transacción de solo lectura. La Fase 2 audita ese CSV local y ofrece experimentos temporales de Random Forest y XGBoost, sujetos a una revisión metodológica acreditada. Ninguna fase reconstruye ETL ni modifica PostgreSQL. FastAPI ofrece ahora una demo interna con ambos pipelines originales, sin conexión a la base ni uso operativo aprobado.
 
 ```text
 FLOWww → raw_flow → analytics.appointment_training_dataset_v1
@@ -195,4 +195,17 @@ Los comandos no sobrescriben auxiliares existentes ni carpetas de reportes. Para
 
 `depi-ml optimize-exploratory --reference <experimento_original> --labels <auxiliar> --output <carpeta_nueva>` ejecuta una única ronda fija en `full` y `without_catalog`, con semilla 42 y umbral 0,5. Incluye los modelos originales y baseline sin reentrenarlos, verifica hashes/contratos/cortes y reproduce sus métricas. Evalúa tres candidatos RF y cinco XGBoost por experimento (4 y 6 configuraciones contando la original), siempre sin prueba. Genera comparación, desempeño por mes de reserva en Lima y limitaciones del cambio comercial de junio-julio de 2026. Todo mantiene `EXPLORATORY_NOT_VALIDATED`; no promueve un modelo definitivo. Véase el procedimiento en [docs/phase2.md](docs/phase2.md).
 
-Los modelos generados son experimentales. Calibración operativa, validación de bandas LOW/MEDIUM/HIGH y aprobación de producción siguen pendientes. FastAPI se incorporará después en este mismo paquete y compartirá `datasets/schema.py` y el contrato/preprocesamiento de `training/preprocessing.py`; no dependerá de la tabla de entrenamiento ni de etiquetas futuras.
+Los modelos generados son experimentales. Calibración operativa, validación de bandas LOW/MEDIUM/HIGH y aprobación de producción siguen pendientes. FastAPI comparte `datasets/schema.py` y ejecuta el pipeline completo de `training/preprocessing.py`; no depende de la tabla de entrenamiento ni de etiquetas futuras.
+
+## FastAPI: integración local experimental
+
+```bash
+source .venv/bin/activate
+python -m pip install -e '.[dev,ml,api]'
+python -m pytest -q
+ML_RUN_REAL_INTEGRATION=1 python -m pytest tests/api -q
+```
+
+La factory es `depi_ml.api.main:create_app`. Sin activación explícita, credencial de servicio y referencia confiable, liveness responde 200 y readiness 503. El [runbook](docs/api_operations.md) incluye configuración, arranque en `127.0.0.1:8001` y `curl` seguro. Véanse [contrato HTTP](docs/api_ml.md), [arquitectura C4](docs/architecture_ml.md), [contrato futuro Fastify](docs/fastify_integration_contract.md) y [verificación local](docs/api_verification.md).
+
+La API sirve los modelos originales RF/XGBoost `full` con 19 variables. Recibe snapshots `booking_creation`, mantiene `EXPLORATORY_NOT_VALIDATED`, `operational_use_allowed=false` y `risk_level=null`. Las etapas A–C no incluyen batch, SHAP local, Fastify, frontend ni despliegue productivo.

@@ -33,3 +33,5 @@ methodology_review*.json
 .mplconfig/
 *_manifest.json
 *_quality_report.json
+fixtures_locales/
+*.log

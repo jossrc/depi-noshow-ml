@@ -17,6 +17,7 @@ ml = [
   "xgboost>=2.1,<4", "matplotlib>=3.9,<4", "joblib>=1.4,<2",
 ]
 explain = ["shap>=0.46,<1"]
+api = ["fastapi>=0.115,<1", "pydantic>=2.10,<3", "uvicorn>=0.30,<1", "httpx>=0.27,<1"]
 
 [project.scripts]
 depi-ml = "depi_ml.cli:main"
