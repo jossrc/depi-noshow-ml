@@ -30,3 +30,19 @@ class PredictionEngineException(BasePredictionException):
 class RateLimited(BasePredictionException):
     code, status_code = "RATE_LIMITED", 429
     message = "Se alcanzó el límite de inferencias simultáneas."
+
+
+class ExplanationNotReady(BasePredictionException):
+    code, status_code = "EXPLANATION_NOT_READY", 503
+    message = "La explicación local del modelo no está disponible."
+
+
+class ExplanationFailed(BasePredictionException):
+    code, status_code = "EXPLANATION_FAILED", 500
+    message = "No se pudo completar la explicación local."
+
+
+class InvalidBatchSize(BasePredictionException):
+    code, status_code = "INVALID_FEATURES", 422
+    message = "La cantidad de elementos no cumple el límite configurado."
+    details = ({"field": "items", "reason": "batch_size_out_of_range"},)

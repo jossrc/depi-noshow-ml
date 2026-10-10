@@ -21,6 +21,8 @@ class ApiSettings(BaseModel):
     max_request_bytes: int = Field(default=262144, ge=1024, le=1048576)
     max_concurrent_predictions: int = Field(default=2, ge=1, le=16)
     expose_docs: bool = False
+    enable_local_explanations: bool = Field(default=False, strict=True)
+    max_batch_items: int = Field(default=32, ge=1, le=64, strict=True)
 
     @field_validator("service_key")
     @classmethod
@@ -44,9 +46,21 @@ class ApiSettings(BaseModel):
             "model_manifest_sha256": "ML_MODEL_MANIFEST_SHA256", "default_model_key": "ML_DEFAULT_MODEL_KEY",
             "max_request_bytes": "ML_MAX_REQUEST_BYTES", "max_concurrent_predictions": "ML_MAX_CONCURRENT_PREDICTIONS",
             "expose_docs": "ML_EXPOSE_DOCS",
+            "enable_local_explanations": "ML_ENABLE_LOCAL_EXPLANATIONS", "max_batch_items": "ML_MAX_BATCH_ITEMS",
         }
         try:
-            return cls(**{field: os.environ[name] for field, name in names.items() if name in os.environ})
+            values = {field: os.environ[name] for field, name in names.items() if name in os.environ}
+            if "enable_local_explanations" in values:
+                flag = values["enable_local_explanations"]
+                if flag not in ("true", "false"):
+                    raise ValueError
+                values["enable_local_explanations"] = flag == "true"
+            if "max_batch_items" in values:
+                size = values["max_batch_items"]
+                if not size.isascii() or not size.isdecimal():
+                    raise ValueError
+                values["max_batch_items"] = int(size)
+            return cls(**values)
         except ValueError:
             # Pydantic errors can echo input values, including secrets. Never propagate them.
             raise ValueError("Configuración ML_* inválida; consulta docs/api_operations.md.") from None

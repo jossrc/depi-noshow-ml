@@ -1,10 +1,11 @@
-"""Arranca Uvicorn en loopback, verifica cinco rutas con curl y apaga su proceso."""
+"""Smoke Uvicorn/curl en loopback; --extensions añade SHAP/lotes; apaga su proceso."""
 
 import argparse
 import json
 import os
 from pathlib import Path
 import secrets
+import socket
 import subprocess
 import sys
 from tempfile import TemporaryFile
@@ -19,14 +20,19 @@ def main():
     parser.add_argument("--manifest-sha256", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--port", type=int, default=8001)
+    parser.add_argument("--extensions", action="store_true", help="Verify explain RF/XGB and both batch modes")
     args = parser.parse_args()
     if args.output.exists() or not 1024 <= args.port <= 65535:
         parser.error("Destino debe ser nuevo y puerto entre 1024 y 65535.")
+    # Verify a free loopback port before launch; never attach to another service.
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", args.port))
     key = secrets.token_urlsafe(48)
     env = {**os.environ, "ML_API_ENV": "development", "ML_ALLOW_EXPERIMENTAL_INFERENCE": "true",
            "ML_API_MODE": "exploratory_demo", "ML_API_SERVICE_KEY": key,
            "ML_MODEL_REFERENCE_DIR": str(args.reference.resolve()), "ML_MODEL_MANIFEST_SHA256": args.manifest_sha256,
-           "ML_EXPOSE_DOCS": "false"}
+           "ML_EXPOSE_DOCS": "false", "ML_ENABLE_LOCAL_EXPLANATIONS": str(args.extensions).lower(),
+           "ML_MAX_BATCH_ITEMS": "32", "ML_MAX_CONCURRENT_PREDICTIONS": "2"}
     # Not using --env-file: do not import database credentials from .env.
     env.pop("POSTGRES_PASSWORD", None)
     with TemporaryFile() as logs:
@@ -72,6 +78,18 @@ def main():
             for name, model in (("random_forest", "random_forest_full_v1"), ("xgboost", "xgboost_full_v1")):
                 report[name] = curl("/internal/v1/predictions", {**payload, "model_key": model}, True)
             report["compare"] = curl("/internal/v1/predictions/compare", payload, True)
+            if args.extensions:
+                for name, model in (("rf", "random_forest_full_v1"), ("xgb", "xgboost_full_v1")):
+                    report["explain_" + name] = curl("/internal/v1/predictions/explain",
+                                                    {**payload, "model_key": model, "top_k": 5}, True)
+                for mode in ("single", "compare"):
+                    batch = {"mode": mode, "feature_version": payload["feature_version"],
+                             "feature_context": payload["feature_context"], "items": [{"features": payload["features"]}] * 2}
+                    report["batch_" + mode] = curl("/internal/v1/predictions/batch", batch, True)
+                for operation in ("explain", "batch"):
+                    report["unauthorized_" + operation] = curl("/internal/v1/predictions/" + operation, {})
+                assert all(report[name]["status"] == 200 for name in ("explain_rf", "explain_xgb", "batch_single", "batch_compare"))
+                assert all(report["unauthorized_" + name]["status"] == 401 for name in ("explain", "batch"))
             assert report["unauthorized"]["status"] == 401
             assert all(report[name]["status"] == 200 for name in ("live", "ready", "models", "random_forest", "xgboost", "compare"))
             args.output.parent.mkdir(parents=True, exist_ok=True)

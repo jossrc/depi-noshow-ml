@@ -79,3 +79,107 @@ El benchmark usa TestClient, 25 solicitudes por escenario y dos threads para con
 Rotación: generar nueva clave en gestor de secretos/entorno, actualizar futuro Fastify y reiniciar servicio coordinadamente; no hay endpoint de configuración ni período de doble clave implementado. Un nuevo modelo requiere revisión offline, manifiesto/artefactos versionados, pruebas y release explícito; el catálogo actual fija los originales. No sobrescribir joblib cargados. Rollback a referencia y resolución de dependencias anterior, seguido de readiness y paridad. Mantener modelos de solo lectura con control de acceso; usar usuario no root cuando se añada contenedor API. Docker/ETL actuales no se modifican en esta entrega.
 
 Cada worker carga ambos pipelines y duplica su RAM. La configuración local usa un worker; múltiples workers no se benchmarkearon. El máximo de concurrencia es por worker, no un rate limit distribuido. El consumidor puede limitar reintentos y usar circuit breaker; el timeout de red no interrumpe una inferencia en thread ya admitida. Añadir aislamiento de procesos/recursos antes de un despliegue con cargas no controladas. TLS/red privada pertenecen a la infraestructura futura, no a certificados inventados en esta demo.
+
+## Operación de explain y batch (PROMPT8)
+
+El extra existente `explain = ["shap>=0.46,<1"]` es suficiente; SHAP **0.52.0**
+verificado con ambos originales sin cambiar dependencias. Contrastar entorno
+con manifiesto antes de instalar extras; no actualizar ML para silenciar warnings.
+
+Añadir al entorno configurado arriba y arrancar un worker:
+
+```bash
+export ML_ENABLE_LOCAL_EXPLANATIONS=true
+export ML_MAX_BATCH_ITEMS=32
+uvicorn 'depi_ml.api.main:create_app' --factory --host 127.0.0.1 --port 8001 \
+  --no-access-log --log-config examples/uvicorn_logging.json
+```
+
+Flags nuevos estrictos: true/false literal en entorno (default false);
+batch entero decimal 1–64 (default 32). ApiSettings rechaza strings y bool
+usados como enteros. Barrera development, activación experimental, pin y
+clave siguen obligatorios. Sin PostgreSQL ni lectura de .env.
+
+Inicializa explicadores una vez desde los predictores cargados. Fallo opcional
+por modelo: 503 `EXPLANATION_NOT_READY`; readiness/single/compare/batch disponibles.
+503 `MODEL_NOT_READY` es fallo de modelos/barrera demo. No sustituye XGB por RF.
+Excepción de explicación por request: 500 `EXPLANATION_FAILED` saneado.
+
+Swagger: abrir `http://127.0.0.1:8001/docs` con env development y expose_docs true.
+En **Authorize**, introducir manualmente la clave desde una entrada/gestor seguro;
+no incorporarla a OpenAPI, JSON, capturas o historial. Seleccionar ejemplo
+RF/XGB en explain (top_k 1–10), single/compare en batch. Comprobar hash corto,
+estados, factores, índice y request ID. La clave efímera del smoke no se reutiliza.
+
+Curl completo, variable secreta previamente exportada, cabecera por stdin:
+
+```bash
+python -c 'import json,os; print("header = " + json.dumps("X-Service-API-Key: " + os.environ["ML_API_SERVICE_KEY"]))' | \
+  curl --silent --show-error --fail-with-body --max-time 10 --config - \
+  --header 'Content-Type: application/json' --header 'X-Request-ID: synthetic-explain-001' \
+  --data-binary @examples/prediction_explain_rf.json \
+  http://127.0.0.1:8001/internal/v1/predictions/explain
+
+python -c 'import json,os; print("header = " + json.dumps("X-Service-API-Key: " + os.environ["ML_API_SERVICE_KEY"]))' | \
+  curl --silent --show-error --fail-with-body --max-time 10 --config - \
+  --header 'Content-Type: application/json' --header 'X-Request-ID: synthetic-batch-001' \
+  --data-binary @examples/prediction_batch_compare.json \
+  http://127.0.0.1:8001/internal/v1/predictions/batch
+```
+
+Para XGB/single cambiar únicamente el archivo a prediction_explain_xgb.json
+o prediction_batch_single.json. Sin curl -v, secretos en argv ni volcados
+del entorno. El presupuesto curl es de ejemplo local, no SLA.
+
+```bash
+python -m pytest -q
+python -m pytest tests/api -q
+ML_RUN_REAL_INTEGRATION=1 python -m pytest -q
+ML_RUN_REAL_INTEGRATION=1 python -m pytest tests/api -q
+python -m pip check
+python scripts/export_ml_contract.py
+python scripts/smoke_ml_api.py --extensions --port 8002 \
+  --reference "$ML_MODEL_REFERENCE_DIR" --manifest-sha256 "$ML_MODEL_MANIFEST_SHA256" \
+  --output reports/api-extension-new/smoke.json
+python scripts/benchmark_ml_api.py --extensions --requests 5 \
+  --reference "$ML_MODEL_REFERENCE_DIR" --manifest-sha256 "$ML_MODEL_MANIFEST_SHA256" \
+  --output reports/api-extension-new/benchmark.json
+```
+
+Sin opt-in, seis casos reales se omiten explícitamente. Con artefactos y opt-in,
+errores SHAP fallan como tests, nunca se convierten en skip.
+El smoke verifica puerto libre, usa 8002 alterno, prueba las siete rutas y
+tres 401 y apaga únicamente su proceso. Un sandbox puede pedir autorización
+para bind. Los outputs deben ser nuevos, en reports ignorado.
+
+| Negativo | Reproducción segura con TestClient |
+| --- | --- |
+| 401 | sin key/incorrecta/duplicada, incluso JSON roto |
+| 409 | feature_version sintética incompatible |
+| 422 | top_k bool/0/11, batch vacío/33, compare model_key, item inválido |
+| 413 | supera ML_MAX_REQUEST_BYTES, con/sin Content-Length |
+| 429 | cupos globales ocupados o segunda explicación simultánea |
+| 503 EXPLANATION_NOT_READY | flag off o import/init opcional fallido |
+| 503 MODEL_NOT_READY | demo desactivada/modelos no verificados |
+
+`python -m pytest tests/api/test_extensions.py tests/api/test_security.py -q`
+reproduce los controles sin datos de clientes ni cambios del servicio vivo.
+
+Un worker, dos cupos globales y **una explicación simultánea** como máximo.
+La segunda explicación recibe 429 y no ocupa indefinidamente otro cupo.
+Locks por modelo: explain RF puede demorar otra predicción RF; XGB puede usar
+el cupo restante. Una fila densificada con presupuesto 1 MiB (144 columnas
+originales). Timeout HTTP no cancela cómputo iniciado; aislamiento de procesos
+y capacidad de despliegue futuros, sin promesa de cancelación.
+
+Benchmark TestClient en proceso, sin red/Fastify/UI: single RF/XGB, compare,
+explain RF/XGB, batch 1/8/32 en ambos modos, concurrencia 2, p50/p95 y pico RSS.
+Warm-up: 3 single y 1 por extensión. Cinco muestras artificiales no prueban
+SLA ni generalización. Mediciones y warnings:
+[informe nuevo](api_verification.md).
+
+Dependencia opcional en un entorno nuevo: después de verificar resolución y
+compatibilidad con el manifiesto, `python -m pip install -e '.[dev,ml,api,explain]'`.
+En el entorno ya verificado de esta entrega no se ejecutó esa instalación:
+`python -m pip check` pasó y no se alteró la resolución ML. Consultar la versión
+con `python -c 'import importlib.metadata as m; print(m.version("shap"))'`.

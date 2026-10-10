@@ -14,14 +14,31 @@ def error_response(status, code, message, request_id, details=None):
 def register_exception_handlers(app):
     @app.exception_handler(BasePredictionException)
     async def domain_error(request, error):
-        return error_response(error.status_code, error.code, error.message, request.state.request_id)
+        return error_response(error.status_code, error.code, error.message, request.state.request_id,
+                              getattr(error, "details", None))
 
     @app.exception_handler(RequestValidationError)
     async def invalid_features(request, error):
         # No raw input, exception text, arbitrary extra field names or Pydantic ctx.
         safe = {*PREDICTOR_COLUMNS, "features", "feature_context", "snapshot_type", "builder_version",
                 "feature_version", "model_key", "body"}
-        details = [{"field": ".".join(str(part) if part in safe else "[extra]" for part in e["loc"] if part != "body"),
+        is_batch = request.url.path == "/internal/v1/predictions/batch"
+        if is_batch:
+            safe.update(("items", "mode"))
+        elif request.url.path == "/internal/v1/predictions/explain":
+            safe.add("top_k")
+
+        def location(parts):
+            field = ""
+            for index, part in enumerate(parts):
+                if part == "body" or is_batch and index == 1 and part in ("single", "compare"):
+                    continue
+                if is_batch and type(part) is int:
+                    field += f"[{part}]"
+                else:
+                    field += ("." if field else "") + (str(part) if part in safe else "[extra]")
+            return field
+        details = [{"field": location(e["loc"]) or ("mode" if is_batch else ""),
                     "reason": e["type"]} for e in error.errors()[:20]]
         return error_response(422, "INVALID_FEATURES", "Los datos de predicción no cumplen el contrato v1.",
                               request.state.request_id, details)

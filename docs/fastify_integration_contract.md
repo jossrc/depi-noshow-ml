@@ -6,7 +6,7 @@ Flujo: `GetReservationRiskRoute → GetReservationRiskHandler → GetReservation
 
 Fastify es responsable de autenticación/roles, reservas, sedes autorizadas, cálculo de las 19 features desde snapshots legítimos al reservar, importaciones CSV/Excel, reportes, campañas, historial y eventual persistencia de scores/outcomes. Mantiene IDs de cliente/cita y secretos fuera de la petición Python. La existencia de una nueva clínica se valida en Fastify; Python tolera categorías no vistas a través del encoder guardado, sin fit. Esto no acredita desempeño sobre esa categoría.
 
-El historial debe cumplir conocimiento anterior al corte (`known_at < prediction_at`) y las fuentes SCHEDULED deben representar el snapshot de reserva. No usar la tabla de entrenamiento, `client_history_current`, saldo actual de bono, resultados/tickets/laser finales ni catálogo posterior para simular conocimiento pasado. La declaración `snapshot_type` no certifica por sí sola la reconstrucción point-in-time. HU-04, score a 24 h, requiere diseño/entrenamiento temporal distinto; no alterar anticipación original. HU-14 trata candidato no-show, no cancelaciones generales. Registrar outcomes alimenta evaluación/reentrenamiento **offline**, nunca aprendizaje por request.
+El historial debe cumplir conocimiento anterior al corte (`known_at < prediction_at`) y las fuentes SCHEDULED deben representar el snapshot de reserva. No usar la tabla de entrenamiento, `client_history_current`, saldo actual de bono, resultados/tickets/laser finales ni catálogo posterior para simular conocimiento pasado. La declaración `snapshot_type` no certifica por sí sola la reconstrucción point-in-time. HU-04 y HU-14 retiradas: no implementar score a 24 h ni seguimiento de cambio de riesgo tras contacto. No alterar anticipación original; el target sigue siendo candidato no-show, no cancelaciones generales. Registrar outcomes alimenta evaluación/reentrenamiento **offline**, nunca aprendizaje por request.
 
 Tipos ilustrativos del contrato implementado (generar y validar a partir de OpenAPI para el release real):
 
@@ -96,3 +96,97 @@ En demo, una eventual persistencia autorizada deberá guardar timestamp, snapsho
 Comparación de UI: mostrar RF y XGB con sus etiquetas, diferencia en puntos porcentuales **descriptiva**, semáforo no disponible. No promediar, elegir score mayor, llamar confianza a su cercanía, explicar con importancia global como causa local ni activar sobreasignaciones/campañas reales.
 
 Pruebas futuras cuando exista Node: builder as-of, autenticación, JSON/schema, paridad Python, errores/timeouts, persistencia versionada sin duplicados, ausencia de secretos en web/logs y latencia completa Next.js→Fastify→Python. Esta entrega solo verifica Python y loopback curl, no E2E Node.
+
+## Contrato de transferencia PROMPT8
+
+Flujo: `Next.js (sesión) → Fastify (RBAC/reservas/fuentes) →
+RiskFeaturesBuilder (as-of booking_creation) → PredictionClient (HTTP privado) →
+FastAPI (single/compare/batch/explain) → Fastify (persistencia auditada/UI futura)`.
+
+Contrato versionado [OpenAPI](contracts/ml-internal-v1.openapi.json) y
+[tipos TS derivados](contracts/ml-internal-v1.types.ts). El generador y tests
+comprueban igualdad con factory; no hay package.json ni cliente Node implementado.
+Tipos cubren las 19 claves/nulls, single/compare, explicación con discriminador
+output_space/enlace, batch discriminado mode, metadatos y error envelope.
+Validación runtime: enteros seguros `Number.isSafeInteger`, finitos,
+rangos/cross-fields, claves requeridas aunque null y ausencia de extras.
+Los tipos no sustituyen esas validaciones.
+
+PredictionClient debe conservar X-Request-ID opaco, autenticación solo servidor,
+versiones/hashes/status, timeout medido extremo a extremo, reintentos acotados
+y circuit breaker/backpressure. Nada de secreto en navegador, URLs o logs.
+RiskFeaturesBuilder debe certificar `known_at < prediction_at` para historial
+y snapshot SCHEDULED de reserva. Nunca historial actual retroactivo,
+laser_det finales, saldo de vouchers actual, resultados ni catálogo posterior.
+
+Batch: construir hasta 32 items (configuración acordada ≤64). Fastify conserva
+la correspondencia índice→reserva localmente; Python no recibe identificadores.
+HU-15 valida CSV/Excel, crea reservas/snapshots y reporta aceptados/rechazados
+en Fastify antes de llamar lotes. Python recibe features, nunca archivos.
+
+HU-05 solicita explain **al abrir el detalle**, una llamada por algoritmo si
+se muestran ambos. No pedir cientos de SHAP al cargar dashboard.
+La UI muestra «factor asociado a la predicción», nunca «causa».
+RF probability y XGB log-odds tienen escalas distintas; no comparar magnitudes
+sin aclaración. Cache/persistencia de explicaciones requeriría autorización
+y clave modelo/version/hash/snapshot; Python no guarda resultados.
+
+La futura persistencia por reserva/modelo/snapshot incluye timestamp,
+feature_version, builder_version/origen, request_id, model_key/model_version/hash
+y estados. Idempotencia/retención pertenecen a Fastify; no reescritura silenciosa.
+HU-10 guarda asistencia/no-show allí y no entrena en tiempo real.
+HU-08/12 requieren política y validación humana; semáforo bloqueado con
+risk_level=null y operational_use_allowed=false.
+
+| HU activa | Dueño y apoyo Python |
+| --- | --- |
+| 01 lista por riesgo | Fastify/UI; batch/scores experimentales, sin semáforo aprobado |
+| 02 porcentaje | Python RF/XGB + UI con identidad y estado |
+| 03 filtros/priorización | Fastify/SQL/UI |
+| 05 factores asociados | Python SHAP local + Fastify/UI |
+| 06 historial cliente | Fastify/PostgreSQL |
+| 08 sobreasignación | Fastify/PostgreSQL; sin automatización |
+| 10 outcome | Fastify/PostgreSQL; aprendizaje offline futuro |
+| 11 espacios recuperados | Fastify/PostgreSQL |
+| 12 retención | Fastify/PostgreSQL; batch no habilita campaña |
+| 13 registro campaña | Fastify/PostgreSQL |
+| 15 carga masiva | Fastify valida archivos; Python recibe lotes de features |
+| 17 predicho/real mensual | Fastify/PostgreSQL/UI |
+| 18 reporte espacios | Fastify/PostgreSQL/UI |
+| 21 login | Fastify |
+| 22 roles | Fastify |
+
+**Siete retiradas**: HU-04 recálculo dinámico; HU-07 vista anticipación;
+HU-09 horarios ociosos; HU-14 cambio tras contacto; HU-16 historial de cargas;
+HU-19 ranking tratamientos/especialistas; HU-20 Excel consolidado.
+No se editan documentos PI1/DOCX/memoria. Retirar HU-07 **no elimina**
+`booking_lead_days` del modelo.
+
+| Respuesta | Acción del consumidor |
+| --- | --- |
+| 401 | corregir credencial interna, no mostrar secreto |
+| 404 UNKNOWN_MODEL | corregir catálogo/configuración, sin otro algoritmo como fallback |
+| 409 | corregir versión/constructor de features |
+| 413 | acotar bytes/lote |
+| 422 | corregir campos seguros; item inválido implica cero inferencias |
+| 429 | backpressure y reintentos limitados con espera |
+| 500 INFERENCE_FAILED | score no disponible; no conservar parciales |
+| 500 EXPLANATION_FAILED | explicación no disponible; score previo conserva su identidad |
+| 503 MODEL_NOT_READY | servicio no preparado para inferencia |
+| 503 EXPLANATION_NOT_READY | SHAP opcional no disponible; no invalida predicción normal |
+| timeout | no asumir cancelación del cómputo Python, ni 0%/LOW |
+
+### Aprobación operativa pendiente
+
+Etiqueta NO_SHOW_CANDIDATE reconstruida: definición/revisión humana pendiente.
+Disponibilidad point-in-time de labels/features y los ocho controles
+metodológicos siguen sin acreditar; sesgo de selección por elegibilidad/purga,
+calibración, bandas y desempeño por grupos/sedes requieren validación.
+Test reservado sin desbloquear; ROC-AUC académica ≥0.80 en test **no acreditada**.
+
+Compra previa de bono introducida aproximadamente junio–julio de 2026;
+presenciales pueden atenderse el mismo día con disponibilidad. Posible
+concept drift: tasas por mes de cita 20.92%, 7.15%, 4.78%, 2.58% de junio a
+septiembre, compatibles con la política pero sin causalidad exclusiva probada.
+No se fija día exacto ni variable nueva; no cambiar cortes, labels o ronda
+de hiperparámetros. Integración técnica no acredita generalización postcambio.

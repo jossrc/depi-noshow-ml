@@ -18,3 +18,13 @@ def prediction_use_case(request: Request):
 def comparison_use_case(request: Request):
     require_registry(request)
     return request.app.state.compare_models
+
+
+def explanation_use_case(request: Request):
+    require_registry(request)
+    return request.app.state.explain_prediction
+
+
+def batch_use_case(request: Request):
+    require_registry(request)
+    return request.app.state.predict_batch

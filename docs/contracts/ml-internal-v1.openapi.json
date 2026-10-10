@@ -1,0 +1,2353 @@
+{
+  "components": {
+    "schemas": {
+      "BatchCompareRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "feature_context": {
+            "$ref": "#/components/schemas/FeatureContext"
+          },
+          "feature_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BatchItem"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "mode": {
+            "const": "compare",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "feature_version",
+          "feature_context",
+          "items",
+          "mode"
+        ],
+        "title": "BatchCompareRequest",
+        "type": "object"
+      },
+      "BatchCompareResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "calibration_status": {
+            "const": "not_operationally_validated",
+            "default": "not_operationally_validated",
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "count": {
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "feature_version": {
+            "const": "BOOKING_BASELINE_V1",
+            "default": "BOOKING_BASELINE_V1",
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "mode": {
+            "const": "compare",
+            "title": "Mode",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CompareBatchItemResult"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Results",
+            "type": "array"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "null"
+          },
+          "risk_policy_status": {
+            "const": "pending_validation",
+            "default": "pending_validation",
+            "title": "Risk Policy Status",
+            "type": "string"
+          },
+          "validation_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "request_id",
+          "mode",
+          "results"
+        ],
+        "title": "BatchCompareResponse",
+        "type": "object"
+      },
+      "BatchItem": {
+        "additionalProperties": false,
+        "properties": {
+          "features": {
+            "$ref": "#/components/schemas/PredictionFeatures"
+          }
+        },
+        "required": [
+          "features"
+        ],
+        "title": "BatchItem",
+        "type": "object"
+      },
+      "BatchSingleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "feature_context": {
+            "$ref": "#/components/schemas/FeatureContext"
+          },
+          "feature_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BatchItem"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "mode": {
+            "const": "single",
+            "title": "Mode",
+            "type": "string"
+          },
+          "model_key": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9_]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Key"
+          }
+        },
+        "required": [
+          "feature_version",
+          "feature_context",
+          "items",
+          "mode"
+        ],
+        "title": "BatchSingleRequest",
+        "type": "object"
+      },
+      "BatchSingleResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "calibration_status": {
+            "const": "not_operationally_validated",
+            "default": "not_operationally_validated",
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "count": {
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "feature_version": {
+            "const": "BOOKING_BASELINE_V1",
+            "default": "BOOKING_BASELINE_V1",
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "mode": {
+            "const": "single",
+            "title": "Mode",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SingleBatchItemResult"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Results",
+            "type": "array"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "null"
+          },
+          "risk_policy_status": {
+            "const": "pending_validation",
+            "default": "pending_validation",
+            "title": "Risk Policy Status",
+            "type": "string"
+          },
+          "validation_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "request_id",
+          "mode",
+          "results"
+        ],
+        "title": "BatchSingleResponse",
+        "type": "object"
+      },
+      "CompareBatchItemResult": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "prediction": {
+            "$ref": "#/components/schemas/CompareResponse"
+          }
+        },
+        "required": [
+          "index",
+          "prediction"
+        ],
+        "title": "CompareBatchItemResult",
+        "type": "object"
+      },
+      "CompareRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "feature_context": {
+            "$ref": "#/components/schemas/FeatureContext"
+          },
+          "feature_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "features": {
+            "$ref": "#/components/schemas/PredictionFeatures"
+          }
+        },
+        "required": [
+          "feature_version",
+          "feature_context",
+          "features"
+        ],
+        "title": "CompareRequest",
+        "type": "object"
+      },
+      "CompareResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "calibration_status": {
+            "const": "not_operationally_validated",
+            "default": "not_operationally_validated",
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/Comparison"
+          },
+          "feature_version": {
+            "const": "BOOKING_BASELINE_V1",
+            "default": "BOOKING_BASELINE_V1",
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "results": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/PredictionResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PredictionResponse"
+              }
+            ],
+            "title": "Results",
+            "type": "array"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "null"
+          },
+          "risk_policy_status": {
+            "const": "pending_validation",
+            "default": "pending_validation",
+            "title": "Risk Policy Status",
+            "type": "string"
+          },
+          "validation_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "results",
+          "comparison",
+          "request_id"
+        ],
+        "title": "CompareResponse",
+        "type": "object"
+      },
+      "Comparison": {
+        "additionalProperties": false,
+        "properties": {
+          "absolute_probability_difference": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Absolute Probability Difference",
+            "type": "number"
+          },
+          "ensemble_probability": {
+            "title": "Ensemble Probability",
+            "type": "null"
+          },
+          "interpretation": {
+            "const": "descriptive_only_not_model_confidence",
+            "default": "descriptive_only_not_model_confidence",
+            "title": "Interpretation",
+            "type": "string"
+          },
+          "selected_winner": {
+            "title": "Selected Winner",
+            "type": "null"
+          }
+        },
+        "required": [
+          "absolute_probability_difference"
+        ],
+        "title": "Comparison",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "details"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "reason"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "request_id"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "ExplanationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "feature_context": {
+            "$ref": "#/components/schemas/FeatureContext"
+          },
+          "feature_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "features": {
+            "$ref": "#/components/schemas/PredictionFeatures"
+          },
+          "model_key": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9_]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Key"
+          },
+          "top_k": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feature_version",
+          "feature_context",
+          "features"
+        ],
+        "title": "ExplanationRequest",
+        "type": "object"
+      },
+      "ExplanationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "enum": [
+              "random_forest",
+              "xgboost"
+            ],
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "api_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "calibration_status": {
+            "const": "not_operationally_validated",
+            "default": "not_operationally_validated",
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "explanation": {
+            "discriminator": {
+              "mapping": {
+                "log_odds": "#/components/schemas/LogOddsExplanation",
+                "probability": "#/components/schemas/ProbabilityExplanation"
+              },
+              "propertyName": "output_space"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProbabilityExplanation"
+              },
+              {
+                "$ref": "#/components/schemas/LogOddsExplanation"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "feature_version": {
+            "const": "BOOKING_BASELINE_V1",
+            "default": "BOOKING_BASELINE_V1",
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "model_hash": {
+            "title": "Model Hash",
+            "type": "string"
+          },
+          "model_key": {
+            "title": "Model Key",
+            "type": "string"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "prediction_target": {
+            "const": "NO_SHOW_CANDIDATE",
+            "default": "NO_SHOW_CANDIDATE",
+            "title": "Prediction Target",
+            "type": "string"
+          },
+          "probability_no_show": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Probability No Show",
+            "type": "number"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "null"
+          },
+          "risk_policy_status": {
+            "const": "pending_validation",
+            "default": "pending_validation",
+            "title": "Risk Policy Status",
+            "type": "string"
+          },
+          "target_class": {
+            "const": 1,
+            "default": 1,
+            "title": "Target Class",
+            "type": "integer"
+          },
+          "validation_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_key",
+          "algorithm",
+          "model_version",
+          "model_hash",
+          "probability_no_show",
+          "request_id",
+          "explanation"
+        ],
+        "title": "ExplanationResponse",
+        "type": "object"
+      },
+      "Factor": {
+        "additionalProperties": false,
+        "properties": {
+          "absolute_contribution": {
+            "minimum": 0.0,
+            "title": "Absolute Contribution",
+            "type": "number"
+          },
+          "contribution": {
+            "title": "Contribution",
+            "type": "number"
+          },
+          "direction": {
+            "enum": [
+              "increases_model_output",
+              "decreases_model_output",
+              "neutral"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "feature_name": {
+            "enum": [
+              "age_at_booking",
+              "client_sex",
+              "booking_lead_days",
+              "appointment_month",
+              "appointment_weekday",
+              "appointment_hour",
+              "duration_minutes",
+              "is_fwa",
+              "clinic_id",
+              "scheduled_service_lines",
+              "distinct_body_areas",
+              "single_body_area_id",
+              "has_medical_evaluation",
+              "has_type4_service",
+              "previous_attended",
+              "previous_no_show",
+              "previous_no_show_rate",
+              "days_since_previous_attended",
+              "days_since_previous_no_show"
+            ],
+            "title": "Feature Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "feature_name",
+          "direction",
+          "contribution",
+          "absolute_contribution"
+        ],
+        "title": "Factor",
+        "type": "object"
+      },
+      "FeatureContext": {
+        "additionalProperties": false,
+        "properties": {
+          "builder_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Builder Version"
+          },
+          "snapshot_type": {
+            "const": "booking_creation",
+            "title": "Snapshot Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_type"
+        ],
+        "title": "FeatureContext",
+        "type": "object"
+      },
+      "LiveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "service": {
+            "const": "depi-noshow-ml-api",
+            "default": "depi-noshow-ml-api",
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "const": "alive",
+            "default": "alive",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "LiveResponse",
+        "type": "object"
+      },
+      "LogOddsExplanation": {
+        "additionalProperties": false,
+        "properties": {
+          "additivity_error": {
+            "minimum": 0.0,
+            "title": "Additivity Error",
+            "type": "number"
+          },
+          "base_value": {
+            "title": "Base Value",
+            "type": "number"
+          },
+          "explained_class": {
+            "const": 1,
+            "default": 1,
+            "title": "Explained Class",
+            "type": "integer"
+          },
+          "explanation_scope": {
+            "const": "local_association_not_causality",
+            "default": "local_association_not_causality",
+            "title": "Explanation Scope",
+            "type": "string"
+          },
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/Factor"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Factors",
+            "type": "array"
+          },
+          "feature_perturbation": {
+            "const": "tree_path_dependent",
+            "default": "tree_path_dependent",
+            "title": "Feature Perturbation",
+            "type": "string"
+          },
+          "method": {
+            "const": "tree_shap",
+            "default": "tree_shap",
+            "title": "Method",
+            "type": "string"
+          },
+          "model_output_in_explanation_space": {
+            "title": "Model Output In Explanation Space",
+            "type": "number"
+          },
+          "other_features_contribution": {
+            "title": "Other Features Contribution",
+            "type": "number"
+          },
+          "output_link": {
+            "const": "sigmoid",
+            "title": "Output Link",
+            "type": "string"
+          },
+          "output_space": {
+            "const": "log_odds",
+            "title": "Output Space",
+            "type": "string"
+          },
+          "reconstructed_output_in_explanation_space": {
+            "title": "Reconstructed Output In Explanation Space",
+            "type": "number"
+          },
+          "top_k": {
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "type": "integer"
+          },
+          "total_feature_count": {
+            "const": 19,
+            "default": 19,
+            "title": "Total Feature Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "base_value",
+          "model_output_in_explanation_space",
+          "reconstructed_output_in_explanation_space",
+          "additivity_error",
+          "top_k",
+          "factors",
+          "other_features_contribution",
+          "output_space",
+          "output_link"
+        ],
+        "title": "LogOddsExplanation",
+        "type": "object"
+      },
+      "ModelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "enum": [
+              "random_forest",
+              "xgboost"
+            ],
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "calibration_status": {
+            "const": "not_operationally_validated",
+            "default": "not_operationally_validated",
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "experiment": {
+            "const": "full",
+            "default": "full",
+            "title": "Experiment",
+            "type": "string"
+          },
+          "feature_count": {
+            "title": "Feature Count",
+            "type": "integer"
+          },
+          "model_hash": {
+            "title": "Model Hash",
+            "type": "string"
+          },
+          "model_key": {
+            "title": "Model Key",
+            "type": "string"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "predictor_columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Predictor Columns",
+            "type": "array"
+          },
+          "role": {
+            "enum": [
+              "provisional_demo_default",
+              "independent_comparator"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "training_mode": {
+            "const": "exploratory",
+            "default": "exploratory",
+            "title": "Training Mode",
+            "type": "string"
+          },
+          "validation_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_key",
+          "algorithm",
+          "model_version",
+          "model_hash",
+          "feature_count",
+          "predictor_columns",
+          "role"
+        ],
+        "title": "ModelResponse",
+        "type": "object"
+      },
+      "ModelsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "default_model_key": {
+            "title": "Default Model Key",
+            "type": "string"
+          },
+          "feature_version": {
+            "const": "BOOKING_BASELINE_V1",
+            "default": "BOOKING_BASELINE_V1",
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "models": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/ModelResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelResponse"
+              }
+            ],
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "default_model_key",
+          "models"
+        ],
+        "title": "ModelsResponse",
+        "type": "object"
+      },
+      "PredictionFeatures": {
+        "additionalProperties": false,
+        "properties": {
+          "age_at_booking": {
+            "anyOf": [
+              {
+                "maximum": 95.0,
+                "minimum": 16.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age At Booking"
+          },
+          "appointment_hour": {
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Appointment Hour",
+            "type": "integer"
+          },
+          "appointment_month": {
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Appointment Month",
+            "type": "integer"
+          },
+          "appointment_weekday": {
+            "maximum": 7.0,
+            "minimum": 1.0,
+            "title": "Appointment Weekday",
+            "type": "integer"
+          },
+          "booking_lead_days": {
+            "exclusiveMinimum": 0.0,
+            "title": "Booking Lead Days",
+            "type": "number"
+          },
+          "client_sex": {
+            "anyOf": [
+              {
+                "enum": [
+                  "M",
+                  "F",
+                  "X"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Sex"
+          },
+          "clinic_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Clinic Id",
+            "type": "integer"
+          },
+          "days_since_previous_attended": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Since Previous Attended"
+          },
+          "days_since_previous_no_show": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Since Previous No Show"
+          },
+          "distinct_body_areas": {
+            "minimum": 0.0,
+            "title": "Distinct Body Areas",
+            "type": "integer"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "has_medical_evaluation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Medical Evaluation"
+          },
+          "has_type4_service": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Type4 Service"
+          },
+          "is_fwa": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Fwa"
+          },
+          "previous_attended": {
+            "minimum": 0.0,
+            "title": "Previous Attended",
+            "type": "integer"
+          },
+          "previous_no_show": {
+            "minimum": 0.0,
+            "title": "Previous No Show",
+            "type": "integer"
+          },
+          "previous_no_show_rate": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous No Show Rate"
+          },
+          "scheduled_service_lines": {
+            "minimum": 0.0,
+            "title": "Scheduled Service Lines",
+            "type": "integer"
+          },
+          "single_body_area_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Single Body Area Id"
+          }
+        },
+        "required": [
+          "age_at_booking",
+          "client_sex",
+          "booking_lead_days",
+          "appointment_month",
+          "appointment_weekday",
+          "appointment_hour",
+          "duration_minutes",
+          "is_fwa",
+          "clinic_id",
+          "scheduled_service_lines",
+          "distinct_body_areas",
+          "single_body_area_id",
+          "has_medical_evaluation",
+          "has_type4_service",
+          "previous_attended",
+          "previous_no_show",
+          "previous_no_show_rate",
+          "days_since_previous_attended",
+          "days_since_previous_no_show"
+        ],
+        "title": "PredictionFeatures",
+        "type": "object"
+      },
+      "PredictionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "feature_context": {
+            "$ref": "#/components/schemas/FeatureContext"
+          },
+          "feature_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "features": {
+            "$ref": "#/components/schemas/PredictionFeatures"
+          },
+          "model_key": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9_]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Key"
+          }
+        },
+        "required": [
+          "feature_version",
+          "feature_context",
+          "features"
+        ],
+        "title": "PredictionRequest",
+        "type": "object"
+      },
+      "PredictionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "enum": [
+              "random_forest",
+              "xgboost"
+            ],
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "api_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "calibration_status": {
+            "const": "not_operationally_validated",
+            "default": "not_operationally_validated",
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "feature_version": {
+            "const": "BOOKING_BASELINE_V1",
+            "default": "BOOKING_BASELINE_V1",
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "model_hash": {
+            "title": "Model Hash",
+            "type": "string"
+          },
+          "model_key": {
+            "title": "Model Key",
+            "type": "string"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "prediction_target": {
+            "const": "NO_SHOW_CANDIDATE",
+            "default": "NO_SHOW_CANDIDATE",
+            "title": "Prediction Target",
+            "type": "string"
+          },
+          "probability_no_show": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Probability No Show",
+            "type": "number"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "null"
+          },
+          "risk_policy_status": {
+            "const": "pending_validation",
+            "default": "pending_validation",
+            "title": "Risk Policy Status",
+            "type": "string"
+          },
+          "target_class": {
+            "const": 1,
+            "default": 1,
+            "title": "Target Class",
+            "type": "integer"
+          },
+          "validation_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_key",
+          "algorithm",
+          "model_version",
+          "model_hash",
+          "probability_no_show",
+          "request_id"
+        ],
+        "title": "PredictionResponse",
+        "type": "object"
+      },
+      "ProbabilityExplanation": {
+        "additionalProperties": false,
+        "properties": {
+          "additivity_error": {
+            "minimum": 0.0,
+            "title": "Additivity Error",
+            "type": "number"
+          },
+          "base_value": {
+            "title": "Base Value",
+            "type": "number"
+          },
+          "explained_class": {
+            "const": 1,
+            "default": 1,
+            "title": "Explained Class",
+            "type": "integer"
+          },
+          "explanation_scope": {
+            "const": "local_association_not_causality",
+            "default": "local_association_not_causality",
+            "title": "Explanation Scope",
+            "type": "string"
+          },
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/Factor"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Factors",
+            "type": "array"
+          },
+          "feature_perturbation": {
+            "const": "tree_path_dependent",
+            "default": "tree_path_dependent",
+            "title": "Feature Perturbation",
+            "type": "string"
+          },
+          "method": {
+            "const": "tree_shap",
+            "default": "tree_shap",
+            "title": "Method",
+            "type": "string"
+          },
+          "model_output_in_explanation_space": {
+            "title": "Model Output In Explanation Space",
+            "type": "number"
+          },
+          "other_features_contribution": {
+            "title": "Other Features Contribution",
+            "type": "number"
+          },
+          "output_link": {
+            "const": "identity",
+            "title": "Output Link",
+            "type": "string"
+          },
+          "output_space": {
+            "const": "probability",
+            "title": "Output Space",
+            "type": "string"
+          },
+          "reconstructed_output_in_explanation_space": {
+            "title": "Reconstructed Output In Explanation Space",
+            "type": "number"
+          },
+          "top_k": {
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "type": "integer"
+          },
+          "total_feature_count": {
+            "const": 19,
+            "default": 19,
+            "title": "Total Feature Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "base_value",
+          "model_output_in_explanation_space",
+          "reconstructed_output_in_explanation_space",
+          "additivity_error",
+          "top_k",
+          "factors",
+          "other_features_contribution",
+          "output_space",
+          "output_link"
+        ],
+        "title": "ProbabilityExplanation",
+        "type": "object"
+      },
+      "ReadyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "models_loaded": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Models Loaded",
+            "type": "array"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "serving_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Serving Status",
+            "type": "string"
+          },
+          "status": {
+            "const": "ready",
+            "default": "ready",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "models_loaded"
+        ],
+        "title": "ReadyResponse",
+        "type": "object"
+      },
+      "SingleBatchItemResult": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "prediction": {
+            "$ref": "#/components/schemas/PredictionResponse"
+          }
+        },
+        "required": [
+          "index",
+          "prediction"
+        ],
+        "title": "SingleBatchItemResult",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "in": "header",
+        "name": "X-Service-API-Key",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "title": "DEPI internal ML demo",
+    "version": "v1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "live_health_live_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Live",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "ready_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Ready",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/internal/v1/models": {
+      "get": {
+        "operationId": "models_internal_v1_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Models",
+        "tags": [
+          "models"
+        ]
+      }
+    },
+    "/internal/v1/predictions": {
+      "post": {
+        "operationId": "PredictNoShow",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Predictnoshowhandler",
+        "tags": [
+          "predictions"
+        ]
+      }
+    },
+    "/internal/v1/predictions/batch": {
+      "post": {
+        "description": "Validación atómica; ejecución ordenada bajo un cupo global. Límite configurable ML_MAX_BATCH_ITEMS: 32 por defecto, máximo 64. Sin archivos ni IDs.",
+        "operationId": "PredictBatch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "compare": {
+                  "summary": "Artificial batch compare",
+                  "value": {
+                    "feature_context": {
+                      "builder_version": "synthetic_builder_v1",
+                      "snapshot_type": "booking_creation"
+                    },
+                    "feature_version": "BOOKING_BASELINE_V1",
+                    "items": [
+                      {
+                        "features": {
+                          "age_at_booking": 28,
+                          "appointment_hour": 15,
+                          "appointment_month": 11,
+                          "appointment_weekday": 2,
+                          "booking_lead_days": 9.5,
+                          "client_sex": "F",
+                          "clinic_id": 1,
+                          "days_since_previous_attended": 30,
+                          "days_since_previous_no_show": 110,
+                          "distinct_body_areas": 1,
+                          "duration_minutes": 40,
+                          "has_medical_evaluation": false,
+                          "has_type4_service": false,
+                          "is_fwa": false,
+                          "previous_attended": 3,
+                          "previous_no_show": 1,
+                          "previous_no_show_rate": 0.25,
+                          "scheduled_service_lines": 1,
+                          "single_body_area_id": 101
+                        }
+                      },
+                      {
+                        "features": {
+                          "age_at_booking": 28,
+                          "appointment_hour": 15,
+                          "appointment_month": 11,
+                          "appointment_weekday": 2,
+                          "booking_lead_days": 9.5,
+                          "client_sex": "F",
+                          "clinic_id": 999999,
+                          "days_since_previous_attended": 30,
+                          "days_since_previous_no_show": 110,
+                          "distinct_body_areas": 1,
+                          "duration_minutes": 40,
+                          "has_medical_evaluation": false,
+                          "has_type4_service": false,
+                          "is_fwa": false,
+                          "previous_attended": 3,
+                          "previous_no_show": 1,
+                          "previous_no_show_rate": 0.25,
+                          "scheduled_service_lines": 1,
+                          "single_body_area_id": 101
+                        }
+                      }
+                    ],
+                    "mode": "compare"
+                  }
+                },
+                "single": {
+                  "summary": "Artificial batch single",
+                  "value": {
+                    "feature_context": {
+                      "builder_version": "synthetic_builder_v1",
+                      "snapshot_type": "booking_creation"
+                    },
+                    "feature_version": "BOOKING_BASELINE_V1",
+                    "items": [
+                      {
+                        "features": {
+                          "age_at_booking": 28,
+                          "appointment_hour": 15,
+                          "appointment_month": 11,
+                          "appointment_weekday": 2,
+                          "booking_lead_days": 9.5,
+                          "client_sex": "F",
+                          "clinic_id": 1,
+                          "days_since_previous_attended": 30,
+                          "days_since_previous_no_show": 110,
+                          "distinct_body_areas": 1,
+                          "duration_minutes": 40,
+                          "has_medical_evaluation": false,
+                          "has_type4_service": false,
+                          "is_fwa": false,
+                          "previous_attended": 3,
+                          "previous_no_show": 1,
+                          "previous_no_show_rate": 0.25,
+                          "scheduled_service_lines": 1,
+                          "single_body_area_id": 101
+                        }
+                      },
+                      {
+                        "features": {
+                          "age_at_booking": 28,
+                          "appointment_hour": 15,
+                          "appointment_month": 11,
+                          "appointment_weekday": 2,
+                          "booking_lead_days": 9.5,
+                          "client_sex": "F",
+                          "clinic_id": 999999,
+                          "days_since_previous_attended": 30,
+                          "days_since_previous_no_show": 110,
+                          "distinct_body_areas": 1,
+                          "duration_minutes": 40,
+                          "has_medical_evaluation": false,
+                          "has_type4_service": false,
+                          "is_fwa": false,
+                          "previous_attended": 3,
+                          "previous_no_show": 1,
+                          "previous_no_show_rate": 0.25,
+                          "scheduled_service_lines": 1,
+                          "single_body_area_id": 101
+                        }
+                      }
+                    ],
+                    "mode": "single",
+                    "model_key": "random_forest_full_v1"
+                  }
+                }
+              },
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "compare": "#/components/schemas/BatchCompareRequest",
+                    "single": "#/components/schemas/BatchSingleRequest"
+                  },
+                  "propertyName": "mode"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BatchSingleRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BatchCompareRequest"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "compare": "#/components/schemas/BatchCompareResponse",
+                      "single": "#/components/schemas/BatchSingleResponse"
+                    },
+                    "propertyName": "mode"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/BatchSingleResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BatchCompareResponse"
+                    }
+                  ],
+                  "title": "Response Predictbatch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Batch Handler",
+        "tags": [
+          "predictions"
+        ]
+      }
+    },
+    "/internal/v1/predictions/compare": {
+      "post": {
+        "operationId": "CompareModels",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Compare Handler",
+        "tags": [
+          "predictions"
+        ]
+      }
+    },
+    "/internal/v1/predictions/explain": {
+      "post": {
+        "description": "Tree SHAP local opcional. RF: probability/identity; XGB: log_odds/sigmoid. Una explicación simultánea; no causalidad ni uso operativo aprobado.",
+        "operationId": "ExplainPrediction",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "rf": {
+                  "summary": "Artificial rf",
+                  "value": {
+                    "feature_context": {
+                      "builder_version": "synthetic_builder_v1",
+                      "snapshot_type": "booking_creation"
+                    },
+                    "feature_version": "BOOKING_BASELINE_V1",
+                    "features": {
+                      "age_at_booking": 28,
+                      "appointment_hour": 15,
+                      "appointment_month": 11,
+                      "appointment_weekday": 2,
+                      "booking_lead_days": 9.5,
+                      "client_sex": "F",
+                      "clinic_id": 1,
+                      "days_since_previous_attended": 30,
+                      "days_since_previous_no_show": 110,
+                      "distinct_body_areas": 1,
+                      "duration_minutes": 40,
+                      "has_medical_evaluation": false,
+                      "has_type4_service": false,
+                      "is_fwa": false,
+                      "previous_attended": 3,
+                      "previous_no_show": 1,
+                      "previous_no_show_rate": 0.25,
+                      "scheduled_service_lines": 1,
+                      "single_body_area_id": 101
+                    },
+                    "model_key": "random_forest_full_v1",
+                    "top_k": 5
+                  }
+                },
+                "xgb": {
+                  "summary": "Artificial xgb",
+                  "value": {
+                    "feature_context": {
+                      "builder_version": "synthetic_builder_v1",
+                      "snapshot_type": "booking_creation"
+                    },
+                    "feature_version": "BOOKING_BASELINE_V1",
+                    "features": {
+                      "age_at_booking": 28,
+                      "appointment_hour": 15,
+                      "appointment_month": 11,
+                      "appointment_weekday": 2,
+                      "booking_lead_days": 9.5,
+                      "client_sex": "F",
+                      "clinic_id": 1,
+                      "days_since_previous_attended": 30,
+                      "days_since_previous_no_show": 110,
+                      "distinct_body_areas": 1,
+                      "duration_minutes": 40,
+                      "has_medical_evaluation": false,
+                      "has_type4_service": false,
+                      "is_fwa": false,
+                      "previous_attended": 3,
+                      "previous_no_show": 1,
+                      "previous_no_show_rate": 0.25,
+                      "scheduled_service_lines": 1,
+                      "single_body_area_id": 101
+                    },
+                    "model_key": "xgboost_full_v1",
+                    "top_k": 5
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ExplanationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplanationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Explain Handler",
+        "tags": [
+          "predictions"
+        ]
+      }
+    }
+  }
+}

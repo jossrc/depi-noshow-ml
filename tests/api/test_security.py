@@ -90,7 +90,8 @@ def test_uniform_500_for_unexpected_response_error(client, registry, payload, he
 def test_openapi_and_no_unrequested_endpoints(client):
     schema = client.get("/openapi.json").json()
     assert set(schema["paths"]) == {"/health/live", "/health/ready", "/internal/v1/models",
-                                     "/internal/v1/predictions", "/internal/v1/predictions/compare"}
+                                     "/internal/v1/predictions", "/internal/v1/predictions/compare",
+                                     "/internal/v1/predictions/explain", "/internal/v1/predictions/batch"}
     assert schema["components"]["securitySchemes"]["APIKeyHeader"]["name"] == "X-Service-API-Key"
     features = schema["components"]["schemas"]["PredictionFeatures"]
     assert features["additionalProperties"] is False

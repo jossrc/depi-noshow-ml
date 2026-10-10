@@ -1,6 +1,8 @@
 from typing import Mapping, Protocol
 
 from depi_ml.application.dto.prediction_result import PredictionResult
+from depi_ml.application.dto.explanation_result import ExplainedPrediction
+from depi_ml.application.dto.batch_result import BatchResult
 from depi_ml.domain.model_info import ModelInfo
 
 
@@ -14,3 +16,7 @@ class InferenceEngine(Protocol):
     def predict(self, model_key: str, features: Mapping[str, object]) -> PredictionResult: ...
 
     def compare(self, features: Mapping[str, object]) -> tuple[PredictionResult, ...]: ...
+
+    def explain(self, model_key: str, features: Mapping[str, object], top_k: int) -> ExplainedPrediction: ...
+
+    def batch(self, mode: str, items: tuple[Mapping[str, object], ...], model_key: str) -> BatchResult: ...

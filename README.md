@@ -208,4 +208,40 @@ ML_RUN_REAL_INTEGRATION=1 python -m pytest tests/api -q
 
 La factory es `depi_ml.api.main:create_app`. Sin activación explícita, credencial de servicio y referencia confiable, liveness responde 200 y readiness 503. El [runbook](docs/api_operations.md) incluye configuración, arranque en `127.0.0.1:8001` y `curl` seguro. Véanse [contrato HTTP](docs/api_ml.md), [arquitectura C4](docs/architecture_ml.md), [contrato futuro Fastify](docs/fastify_integration_contract.md) y [verificación local](docs/api_verification.md).
 
-La API sirve los modelos originales RF/XGBoost `full` con 19 variables. Recibe snapshots `booking_creation`, mantiene `EXPLORATORY_NOT_VALIDATED`, `operational_use_allowed=false` y `risk_level=null`. Las etapas A–C no incluyen batch, SHAP local, Fastify, frontend ni despliegue productivo.
+La API sirve los modelos originales RF/XGBoost `full` con 19 variables. Recibe snapshots `booking_creation`, mantiene `EXPLORATORY_NOT_VALIDATED`, `operational_use_allowed=false` y `risk_level=null`. La entrega histórica A–C de PROMPT7 se amplía con explain y batch en PROMPT8; Fastify, frontend y despliegue productivo siguen fuera de este repositorio.
+
+## FastAPI listo para integrar Fastify: rutas existentes + explain + batch
+
+PROMPT8 añade `POST /internal/v1/predictions/explain` (Tree SHAP local RF/XGB,
+HU-05) y `POST /internal/v1/predictions/batch` (single/compare, 1–32 items por
+defecto). Se conservan las cinco rutas previas, las 19 features y los pipelines
+originales. Explicación opcional: `ML_ENABLE_LOCAL_EXPLANATIONS=true`, extra
+`explain` ya existente. `ML_MAX_BATCH_ITEMS=32` permite configuración 1–64.
+
+[Contrato Fastify](docs/fastify_integration_contract.md),
+[OpenAPI](docs/contracts/ml-internal-v1.openapi.json) y
+[TypeScript derivado](docs/contracts/ml-internal-v1.types.ts) permiten construir
+el consumidor. Continúa `EXPLORATORY_NOT_VALIDATED`, `risk_level=null` y
+`operational_use_allowed=false`. No accede a PostgreSQL ni evalúa prueba.
+Las siete HU retiradas se documentan sin eliminar `booking_lead_days`.
+
+Usar el entorno compatible existente; comprobar versiones antes de instalar
+`.[dev,ml,api,explain]`. Arranque/Swagger/curl: [runbook](docs/api_operations.md).
+
+```bash
+source .venv/bin/activate
+python -m pip check
+python -m pytest -q
+ML_RUN_REAL_INTEGRATION=1 python -m pytest -q
+python scripts/export_ml_contract.py
+# Configurar ML_MODEL_REFERENCE_DIR y ML_MODEL_MANIFEST_SHA256 según runbook:
+python scripts/smoke_ml_api.py --extensions --port 8002 \
+  --reference "$ML_MODEL_REFERENCE_DIR" --manifest-sha256 "$ML_MODEL_MANIFEST_SHA256" \
+  --output reports/api-extension-new/smoke.json
+python scripts/benchmark_ml_api.py --extensions --requests 5 \
+  --reference "$ML_MODEL_REFERENCE_DIR" --manifest-sha256 "$ML_MODEL_MANIFEST_SHA256" \
+  --output reports/api-extension-new/benchmark.json
+```
+
+Destinos nuevos para mediciones; el smoke apaga su propio proceso. Evidencia
+en [verificación](docs/api_verification.md), preservando literalmente PROMPT7.

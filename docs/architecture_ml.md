@@ -1,6 +1,6 @@
 # Arquitectura del microservicio ML
 
-Implementación de las etapas A–C de PROMPT7, en la distribución existente `depi-noshow-ml`. Estado de desarrollo: `FASTAPI_LOCAL_INTEGRATION_READY`. Estado científico de ambos modelos: `EXPLORATORY_NOT_VALIDATED`.
+Implementación A–C de PROMPT7 y extensión explain/batch de PROMPT8, en la distribución existente `depi-noshow-ml`. Estado de desarrollo: extensión para Fastify; evidencia en api_verification.md. Estado científico de ambos modelos: `EXPLORATORY_NOT_VALIDATED`.
 
 ```mermaid
 flowchart LR
@@ -30,7 +30,7 @@ Fastify construye snapshots legítimos al reservar y conserva los identificadore
 | `ModelRegistry` | `infrastructure/ml/model_registry.py` | Catálogo fijo, mapping inmutable, carga única por lifespan |
 | Integridad | `infrastructure/ml/artifact_verifier.py` | SHA, procedencia, versiones, rutas y contrato |
 | Clasificador de Riesgo / `RiskClassifier` | `domain/risk_classifier.py` | `null`, política pendiente de validación |
-| Factores Asociados | Diferido a etapa D | No hay ruta ni atribuciones locales simuladas |
+| Factores Asociados | ExplainPrediction / ShapExplainer | Explicación genuina de clase 1 RF/XGB |
 | `PredictionResult` | `application/dto/prediction_result.py` | Probabilidad e identidad del artefacto |
 | Constructor / `PredictionResponse` | `api/mappers/prediction_mapper.py`, `api/schemas/` | Probabilidad por algoritmo, versión y estado experimental |
 | Errores C4 | `domain/errors.py`, `api/exception_handlers.py` | `BasePredictionException`, `PredictionEngineException`, respuestas saneadas |
@@ -50,10 +50,55 @@ Decisiones materializadas:
 6. **Demo técnica explícita**: solo `development` con `ML_ALLOW_EXPERIMENTAL_INFERENCE=true` y clave válida. `production`/`staging` no habilitan estos modelos. `ML_API_MODE=production` es configuración inválida. La política no ofrece bandas de riesgo ni uso operativo.
 7. **Contrato único**: nombres y orden provienen de `PREDICTOR_COLUMNS`. La tabla de tipos añade validaciones HTTP y comprueba igualdad del conjunto; no introduce variables. Contexto y versión se excluyen del DataFrame. Se prohíbe simular recálculo a 24 h modificando `booking_lead_days`.
 8. **Recursos acotados**: máximo 256 KiB por defecto; lectura ASGI antes de Pydantic, incluso sin Content-Length. Dos inferencias simultáneas por worker; 429 sin cola adicional del motor. Acceso serializado por pipeline. La admisión se libera cuando la ejecución termina, también ante errores. No se anuncia un timeout de cómputo capaz de interrumpir sklearn: límites externos y aislamiento de procesos quedan para despliegue.
-9. **Sin extensiones prematuras**: batch, SHAP local y umbrales quedan diferidos hasta aceptar A–C y definir sus controles. HU-01/02 tienen scores experimentales, HU-04 requiere otro protocolo temporal, HU-05 no está completa. CRUD, roles, campañas, sobreasignación, reportes y cargas de HU-01–22 siguen a cargo de Fastify/PostgreSQL.
+9. **Separación de responsabilidades**: PROMPT8 agrega batch y SHAP local con controles explícitos. Umbrales pendientes; HU-04 retirada. CRUD, roles, campañas, sobreasignación, reportes y cargas corresponden a Fastify/PostgreSQL.
 
 La compra previa de bono se introdujo aproximadamente en junio–julio de 2026, con excepción presencial el mismo día si hay disponibilidad. Puede representar *concept drift*. Las tasas por **mes de cita** (20.92%, 7.15%, 4.78%, 2.58%) difieren de prevalencias por **mes de reserva** en validación. No prueban causalidad exclusiva de la política. No se añade esta información como predictor ni se inventa un día de implementación. Cortes, etiquetas e hiperparámetros permanecen intactos.
 
 Quedan ocho controles metodológicos pendientes, calibración y bandas sin validar, sesgo de selección por elegibilidad/purga y candidatos no-show como etiqueta reconstruida. La meta ROC-AUC ≥0.80 **en prueba** sigue sin acreditarse; esta API no evalúa prueba. La integración local demuestra ejecución y paridad del pipeline, no generalización posterior al cambio comercial.
 
 El patrón de carga compartida sigue [lifespan de FastAPI](https://fastapi.tiangolo.com/advanced/events/). Las restricciones de procedencia y entorno siguen [persistencia de scikit-learn](https://scikit-learn.org/stable/model_persistence.html). La validación HTTP usa [modo estricto de Pydantic](https://pydantic.dev/docs/validation/latest/concepts/strict_mode/).
+
+## Extensión C4 de PROMPT8
+
+Se conserva factory, registry, verificadores y pipeline compartido. Dominio
+sin FastAPI/SHAP/pandas/filesystem; aplicación depende de puertos.
+
+| Componente | Implementación | Responsabilidad |
+| --- | --- | --- |
+| ExplainPrediction route | api/routes/prediction_explanations.py | HTTP → DTO → caso → mapper |
+| ExplainPrediction | application/use_cases/explain_prediction.py | contexto, top_k, modelo |
+| Explainer | application/ports/explainer.py | interfaz sustituible |
+| ShapExplainer | infrastructure/ml/shap_explainer.py | TreeExplainer opcional, pipeline/lock originales |
+| TransformedFeatureMap | infrastructure/ml/transformed_feature_map.py | metadatos one-hot → 19; conserva suma |
+| explanation_math | infrastructure/ml/explanation_math.py | clase, espacio/enlace, aditividad, ranking/remainder |
+| PredictBatch route | api/routes/prediction_batches.py | unión single/compare; lista validada completa |
+| PredictBatch | application/use_cases/predict_batch.py | límite y contextos antes de admisión |
+| PredictionEngine | infrastructure/ml/prediction_engine.py | semáforo compartido de cuatro operaciones y cupo explain |
+| DTOs/mappers | application/dto/, api/mappers/ | resultados inmutables y respuestas completas |
+| Exportación | scripts/export_ml_contract.py | OpenAPI/TS deterministas sin startup |
+
+```mermaid
+flowchart LR
+    H[FastAPI autenticación y validación] --> S[PredictNoShow / CompareModels]
+    H --> B[PredictBatch]
+    H --> X[ExplainPrediction]
+    S --> A[PredictionEngine admisión global]
+    B --> A
+    X --> A
+    A --> R[Registry RF + XGB original]
+    A --> E[Explainer opcional cupo único]
+    E --> P[FeatureContract y ColumnTransformer ajustados]
+    P --> M[Mapeo 144 a 19]
+    M --> T[Tree SHAP y reconstrucción]
+```
+
+Lifespan verifica/carga pipelines una vez, inicializa explicadores desde esos
+mismos objetos sin segundo joblib.load, crea motor/casos. Fallo SHAP solo
+degrada explicación. Factory admite registry_loader, explainer_loader y
+engine_factory falsos. Shutdown libera referencias de todos los casos/registry.
+Sin estado ML global al importar; API/CLI importables sin SHAP.
+
+No añade negocio, persistencia, entrenamiento, colas, contenedores ni
+migraciones. HU retiradas 04/07/09/14/16/19/20, booking_lead_days permanece.
+Python aporta scores HU-02, explicación HU-05 y batch HU-01/02/15.
+Resto Fastify/UI: [contrato](fastify_integration_contract.md).
