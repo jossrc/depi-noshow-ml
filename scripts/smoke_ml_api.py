@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import secrets
@@ -12,6 +13,7 @@ from tempfile import TemporaryFile
 from time import perf_counter, sleep
 
 from depi_ml.infrastructure.ml.synthetic_probe import synthetic_features
+from depi_ml.datasets.schema import PREDICTOR_COLUMNS
 
 
 def main():
@@ -41,13 +43,22 @@ def main():
                                     "--host", "127.0.0.1", "--port", str(args.port), "--no-access-log",
                                     "--log-config", "examples/uvicorn_logging.json"], env=env, stdout=logs, stderr=logs)
 
-        def curl(path, payload=None, authenticated=False):
+        def curl(path, payload=None, authenticated=False, *, raw_body=None,
+                 invalid_key=False, duplicate_key=False):
             config = f'header = "X-Service-API-Key: {key}"\n' if authenticated else ""
+            if invalid_key:
+                config = 'header = "X-Service-API-Key: invalid-synthetic-key"\n'
+            if duplicate_key:
+                config += f'header = "X-Service-API-Key: {key}"\n'
             cmd = ["curl", "--silent", "--show-error", "--max-time", "10", "--config", "-",
                    "--write-out", "\n%{http_code}", f"http://127.0.0.1:{args.port}{path}"]
-            if payload is not None:
+            if payload is not None or raw_body is not None:
                 # All body data artificial. Secret transmitted through stdin, not argv.
-                cmd += ["--header", "Content-Type: application/json", "--data", json.dumps(payload)]
+                cmd += ["--header", "Content-Type: application/json"]
+                serialized = raw_body if raw_body is not None else json.dumps(payload)
+                # Also send the body through config stdin: large negative cases
+                # must not exceed the operating system's per-argument limit.
+                config += "data-binary = " + json.dumps(serialized) + "\n"
             result = subprocess.run(cmd, input=config, text=True, capture_output=True)
             if result.returncode:
                 raise ConnectionError("curl could not reach the demo")
@@ -78,6 +89,19 @@ def main():
             for name, model in (("random_forest", "random_forest_full_v1"), ("xgboost", "xgboost_full_v1")):
                 report[name] = curl("/internal/v1/predictions", {**payload, "model_key": model}, True)
             report["compare"] = curl("/internal/v1/predictions/compare", payload, True)
+            for name in ("random_forest", "xgboost"):
+                body = report[name]["body"]
+                probability = body["probability_no_show"]
+                assert math.isfinite(probability) and 0 <= probability <= 1
+                assert body["risk_level"] is None and body["operational_use_allowed"] is False
+                assert body["risk_policy_status"] == "pending_validation"
+            assert [row["predictor_columns"] for row in report["models"]["body"]["models"]] == [PREDICTOR_COLUMNS] * 2
+            comparison = report["compare"]["body"]
+            for row, name in zip(comparison["results"], ("random_forest", "xgboost"), strict=True):
+                assert row["model_key"] == report[name]["body"]["model_key"]
+                assert math.isclose(row["probability_no_show"], report[name]["body"]["probability_no_show"], abs_tol=1e-10)
+            assert comparison["comparison"]["ensemble_probability"] is None
+            assert comparison["comparison"]["selected_winner"] is None
             if args.extensions:
                 for name, model in (("rf", "random_forest_full_v1"), ("xgb", "xgboost_full_v1")):
                     report["explain_" + name] = curl("/internal/v1/predictions/explain",
@@ -90,6 +114,23 @@ def main():
                     report["unauthorized_" + operation] = curl("/internal/v1/predictions/" + operation, {})
                 assert all(report[name]["status"] == 200 for name in ("explain_rf", "explain_xgb", "batch_single", "batch_compare"))
                 assert all(report["unauthorized_" + name]["status"] == 401 for name in ("explain", "batch"))
+                negatives = {
+                    "invalid_key": curl("/internal/v1/models", invalid_key=True),
+                    "duplicate_key": curl("/internal/v1/models", authenticated=True, duplicate_key=True),
+                    "invalid_json": curl("/internal/v1/predictions", authenticated=True, raw_body="{"),
+                    "wrong_version": curl("/internal/v1/predictions", {**payload, "feature_version": "SYNTHETIC_INCOMPATIBLE"}, True),
+                    "invalid_type": curl("/internal/v1/predictions", {**payload, "features": {**payload["features"], "clinic_id": "1"}}, True),
+                    "extra_predictor": curl("/internal/v1/predictions", {**payload, "features": {**payload["features"], "previous_cancelled": 0}}, True),
+                    "wrong_snapshot": curl("/internal/v1/predictions", {**payload, "feature_context": {"snapshot_type": "current"}}, True),
+                    "invalid_top_k": curl("/internal/v1/predictions/explain", {**payload, "top_k": 11}, True),
+                    "empty_batch": curl("/internal/v1/predictions/batch", {"mode": "single", "feature_version": payload["feature_version"], "feature_context": payload["feature_context"], "items": []}, True),
+                    "oversized": curl("/internal/v1/predictions", authenticated=True, raw_body='"' + "x" * 262145 + '"'),
+                }
+                expected = {"invalid_key": 401, "duplicate_key": 401, "invalid_json": 400,
+                            "wrong_version": 409, "invalid_type": 422, "extra_predictor": 422,
+                            "wrong_snapshot": 422, "invalid_top_k": 422, "empty_batch": 422, "oversized": 413}
+                assert all(negatives[name]["status"] == status for name, status in expected.items())
+                report.update(negatives)
             assert report["unauthorized"]["status"] == 401
             assert all(report[name]["status"] == 200 for name in ("live", "ready", "models", "random_forest", "xgboost", "compare"))
             args.output.parent.mkdir(parents=True, exist_ok=True)

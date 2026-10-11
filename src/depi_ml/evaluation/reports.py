@@ -99,10 +99,11 @@ def evaluate_partition(pipeline, frame, output, features, threshold=.5, min_grou
 
 def shap_importance(pipeline, X, output):
     import shap
+    from xgboost import XGBClassifier
+    from depi_ml.infrastructure.ml.shap_inputs import dense_tree_input
     transformed = pipeline[:-1].transform(X)
-    if hasattr(transformed, "toarray"):
-        transformed = transformed.toarray()
     estimator = pipeline.named_steps["model"]
+    transformed = dense_tree_input(transformed, sparse_missing=isinstance(estimator, XGBClassifier))
     values = np.asarray(shap.TreeExplainer(estimator).shap_values(transformed))
     if values.ndim == 3:
         values = values[:, :, 1]

@@ -1,11 +1,11 @@
 """Tree SHAP opcional sobre estimadores ajustados del pipeline original."""
 
-import numpy as np
 import pandas as pd
 
 from depi_ml.datasets.schema import PREDICTOR_COLUMNS
 from depi_ml.infrastructure.ml.explanation_math import build_explanation, select_output
 from depi_ml.infrastructure.ml.sklearn_predictor import positive_class_index
+from depi_ml.infrastructure.ml.shap_inputs import dense_tree_input
 from depi_ml.infrastructure.ml.transformed_feature_map import TransformedFeatureMap
 
 MAX_DENSE_ROW_BYTES = 1024 * 1024
@@ -37,15 +37,7 @@ class ShapExplainer:
             transformed = self.preprocess.transform(contracted)
             if transformed.shape != (1, len(self.mapping.assignments)):
                 raise ValueError("Invalid transformed shape")
-            if hasattr(transformed, "tocoo") and self.predictor.info.algorithm == "xgboost":
-                # XGB treats absent CSR entries as missing, including omitted
-                # zeros. A plain toarray() would silently change model semantics.
-                # Preserve stored zeros as zeros and absent entries as NaN.
-                dense = np.full(transformed.shape, np.nan, dtype=float)
-                coordinates = transformed.tocoo()
-                dense[coordinates.row, coordinates.col] = coordinates.data
-            else:
-                dense = transformed.toarray() if hasattr(transformed, "toarray") else np.asarray(transformed)
+            dense = dense_tree_input(transformed, sparse_missing=self.predictor.info.algorithm == "xgboost")
             if dense.nbytes > MAX_DENSE_ROW_BYTES:
                 raise ValueError("Dense row budget exceeded")
             values = self.tree.shap_values(dense, check_additivity=True)

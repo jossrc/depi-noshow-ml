@@ -1,6 +1,5 @@
 """Opt-in: modelos privados originales + fixtures artificiales, sin CSV/SQL/fit."""
 
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -26,7 +25,8 @@ def real_client():
         pytest.skip("Falta experimento original local")
     settings = ApiSettings(allow_experimental_inference=True,
                           service_key="synthetic-integration-key-not-a-secret-2026", model_reference_dir=root,
-                          model_manifest_sha256=hashlib.sha256((root / "experiment.json").read_bytes()).hexdigest())
+                          model_manifest_sha256=os.environ.get("ML_MODEL_MANIFEST_SHA256",
+                              "ae7627340fe5207238da86f0db3d5ebc2b31250a1e4460c7926f169b5c658aac"))
     with TestClient(create_app(settings)) as c:
         assert c.get("/health/ready").status_code == 200, "Falló validación/carga de los dos modelos reales"
         yield c, settings
