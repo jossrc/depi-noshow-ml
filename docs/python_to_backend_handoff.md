@@ -159,3 +159,98 @@ el thread ya iniciado. Medir extremo a extremo; p95 local no constituye SLA.
 Python no consulta PostgreSQL durante inferencia, no verifica copias por sí
 solo y no obtiene datos externos. Node/Next no se abrieron ni modificaron.
 Refresco futuro: [future_data_refresh_runbook.md](future_data_refresh_runbook.md).
+
+## v2 research risk
+
+Adición posterior del 11-10-2026; el apartado v1 anterior y sus contratos se
+conservan. **risk_bands_ready_local=true**, exclusivamente investigación.
+
+Conservar entorno/arranque v1 y añadir variables de proceso:
+
+```bash
+export ML_ENABLE_RESEARCH_RISK=true
+export ML_RESEARCH_RISK_POLICY_PATH=policies/research_risk_v1_1/risk_policy.json
+export ML_RESEARCH_RISK_POLICY_SHA256=459b9b6da3f0a724df787606630942386928ddee8758439cb3da9131a30b075a
+```
+
+Requiere development, demo original explícita, key interna y pin/modelos
+originales. No carga `.env` implícitamente, no requiere PostgreSQL. El pin fue
+publicado después de verificaciones técnicas; no calcular otro para aceptar
+JSON desconocido. La versión research inicial v1 se conserva como sustituida;
+la activa y aceptada es `research_risk_v1_1`.
+
+| Método | Ruta | Contrato |
+| --- | --- | --- |
+| GET | /internal/v2/risk-policy | Disponibilidad, razón tipada o dos políticas con límites/versiones/hashes |
+| POST | /internal/v2/predictions | PredictionRequest v1 → ResearchPredictionResponse |
+| POST | /internal/v2/predictions/compare | CompareRequest v1 → RF/XGB con research independiente |
+| GET | /internal/v2/openapi.json | Esquema v2 separado, autenticado, solo expose_docs development |
+
+[OpenAPI definitivo v2](contracts/ml-internal-v2.openapi.json) y
+[TypeScript de referencia](contracts/ml-internal-v2.types.ts).
+`/openapi.json` sigue siendo exactamente v1. No se añadió batch/explain v2;
+usar los de v1 con identidad/score coherentes. Para badges por fila, consumir
+v2 single con backpressure, sin inventar una regla de bandas en Node.
+
+Body idéntico a single/compare v1. Respuesta conserva metadatos y añade:
+
+- `api_version="v2"`, `model_hash_sha256` completo y
+  `probability_no_show_percent = 100 * probability_no_show`.
+- `experimental_risk.level`: LOW, MEDIUM o HIGH, por modelo.
+- `experimental_risk.label`: Bajo/Medio/Alto (exploratorio).
+- `status=RESEARCH_PROVISIONAL`, `policy_id`, `policy_version=research_risk_v1_1`,
+  `policy_hash` SHA-256 completo, ambos límites y `boundary_rule` exacta.
+- `meaning=relative_score_band_not_validated_absolute_risk`,
+  `score_space=raw_probability_no_show`, advertencias, approved_by=null,
+  operational_use_allowed=false.
+
+Los campos legacy `risk_level=null` y `risk_policy_status=pending_validation`
+permanecen también en v2 para separar la política research del riesgo aprobado.
+La probabilidad cruda no cambia ni se sustituye por calibradores offline.
+
+Regla: LOW si p<t_low; MEDIUM si t_low<=p<t_high; HIGH si p>=t_high.
+RF: 0.302192334412 / 0.460052607619. XGB: 0.243454828858 / 0.435159325600.
+Son terciles relativos de abril–mayo, no umbrales de probabilidad absoluta fiable.
+
+| Campo | Origen Python | Uso Node | Restricción |
+| --- | --- | --- | --- |
+| model_key/model_version/model_hash_sha256 | Predictor original | Identidad persistida | No intercambiar modelos |
+| probability_no_show/percent | Pipeline crudo | Porcentaje | No asumir calibración ni redondear antes de clasificar |
+| experimental_risk.level/label | Política research | Badge exploratorio | No decisión comercial |
+| policy_id/version/hash y límites | Artefacto verificado | Trazabilidad | Cambio exige release/revisión |
+| validation_status | Evidencia | Aviso visible | EXPLORATORY_NOT_VALIDATED |
+| operational_use_allowed | Siempre false | Bloquear acciones automáticas | Obligatorio |
+| feature_context | Request | Snapshot al reservar | Node debe acreditarlo; puede haber NOT_SCORABLE |
+
+Cuando falta/desactiva/falla política: catálogo 200 con UNAVAILABLE,
+available=false, policies=[], razón saneada (`disabled`, `models_unavailable`,
+`missing_policy`, `hash_mismatch`, `invalid_policy`, `model_identity_mismatch`,
+`insufficient_support`). Predicción v2: 503 RESEARCH_RISK_POLICY_NOT_READY,
+details con field experimental_risk y esa razón. **V1 no pierde readiness** por
+fallo de política. Con modelos no disponibles, inferencia queda indisponible.
+Auth y errores 400/401/404/409/413/422/429/500 se conservan; no reintentar errores
+de contrato como si fueran saturación. Timeout HTTP no cancela threads ML.
+
+Rollback: `ML_ENABLE_RESEARCH_RISK=false` y reiniciar coordinadamente solo Python.
+V1 sigue funcionando; v2 informa UNAVAILABLE/503. No tocar PostgreSQL/Docker.
+No hay endpoint de mutación/activación de políticas ni upload HTTP.
+
+Prueba reproducible, desde raíz con TMPDIR/MPLCONFIGDIR locales y destinos nuevos:
+
+```bash
+python scripts/smoke_ml_api.py --extensions --research-risk --port 8001 \
+  --reference "$ML_MODEL_REFERENCE_DIR" --manifest-sha256 "$ML_MODEL_MANIFEST_SHA256" \
+  --policy "$ML_RESEARCH_RISK_POLICY_PATH" --policy-sha256 "$ML_RESEARCH_RISK_POLICY_SHA256" \
+  --output reports/research-http-new/smoke.json
+python scripts/smoke_ml_api.py --extensions --expect-research-unavailable --port 8001 \
+  --reference "$ML_MODEL_REFERENCE_DIR" --manifest-sha256 "$ML_MODEL_MANIFEST_SHA256" \
+  --output reports/research-disabled-new/smoke.json
+```
+
+El smoke crea key efímera en memoria, usa solo loopback y termina su proceso;
+no dejar otro servidor compitiendo en 8001. El segundo fuerza flag off sin
+modificar `.env`. Fixtures completas en
+[research_risk_synthetic_cases.json](../examples/research_risk_synthetic_cases.json).
+Respuestas reales sintéticas, incluyendo tres bandas de cada modelo y diferencia
+RF/XGB, en el [informe de cierre](ml_research_risk_closeout_20261011.md).
+No se implementó ni verificó Node/Next/E2E de negocio en esta tarea.

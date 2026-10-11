@@ -1,0 +1,1265 @@
+{
+  "components": {
+    "schemas": {
+      "CompareRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "feature_context": {
+            "$ref": "#/components/schemas/FeatureContext"
+          },
+          "feature_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "features": {
+            "$ref": "#/components/schemas/PredictionFeatures"
+          }
+        },
+        "required": [
+          "feature_version",
+          "feature_context",
+          "features"
+        ],
+        "title": "CompareRequest",
+        "type": "object"
+      },
+      "Comparison": {
+        "additionalProperties": false,
+        "properties": {
+          "absolute_probability_difference": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Absolute Probability Difference",
+            "type": "number"
+          },
+          "ensemble_probability": {
+            "title": "Ensemble Probability",
+            "type": "null"
+          },
+          "interpretation": {
+            "const": "descriptive_only_not_model_confidence",
+            "default": "descriptive_only_not_model_confidence",
+            "title": "Interpretation",
+            "type": "string"
+          },
+          "selected_winner": {
+            "title": "Selected Winner",
+            "type": "null"
+          }
+        },
+        "required": [
+          "absolute_probability_difference"
+        ],
+        "title": "Comparison",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "details"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "reason"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "request_id"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "ExperimentalRisk": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_by": {
+            "title": "Approved By",
+            "type": "null"
+          },
+          "boundary_rule": {
+            "const": "LOW:p<t_low;MEDIUM:t_low<=p<t_high;HIGH:p>=t_high",
+            "title": "Boundary Rule",
+            "type": "string"
+          },
+          "high_lower_threshold": {
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "High Lower Threshold",
+            "type": "number"
+          },
+          "label": {
+            "enum": [
+              "Bajo (exploratorio)",
+              "Medio (exploratorio)",
+              "Alto (exploratorio)"
+            ],
+            "title": "Label",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "low_upper_threshold": {
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Low Upper Threshold",
+            "type": "number"
+          },
+          "meaning": {
+            "const": "relative_score_band_not_validated_absolute_risk",
+            "default": "relative_score_band_not_validated_absolute_risk",
+            "title": "Meaning",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "policy_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Policy Hash",
+            "type": "string"
+          },
+          "policy_id": {
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "const": "research_risk_v1_1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "score_space": {
+            "const": "raw_probability_no_show",
+            "default": "raw_probability_no_show",
+            "title": "Score Space",
+            "type": "string"
+          },
+          "status": {
+            "const": "RESEARCH_PROVISIONAL",
+            "default": "RESEARCH_PROVISIONAL",
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "level",
+          "label",
+          "policy_id",
+          "policy_version",
+          "policy_hash",
+          "low_upper_threshold",
+          "high_lower_threshold",
+          "boundary_rule",
+          "warnings"
+        ],
+        "title": "ExperimentalRisk",
+        "type": "object"
+      },
+      "FeatureContext": {
+        "additionalProperties": false,
+        "properties": {
+          "builder_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Builder Version"
+          },
+          "snapshot_type": {
+            "const": "booking_creation",
+            "title": "Snapshot Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_type"
+        ],
+        "title": "FeatureContext",
+        "type": "object"
+      },
+      "PredictionFeatures": {
+        "additionalProperties": false,
+        "properties": {
+          "age_at_booking": {
+            "anyOf": [
+              {
+                "maximum": 95.0,
+                "minimum": 16.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age At Booking"
+          },
+          "appointment_hour": {
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Appointment Hour",
+            "type": "integer"
+          },
+          "appointment_month": {
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Appointment Month",
+            "type": "integer"
+          },
+          "appointment_weekday": {
+            "maximum": 7.0,
+            "minimum": 1.0,
+            "title": "Appointment Weekday",
+            "type": "integer"
+          },
+          "booking_lead_days": {
+            "exclusiveMinimum": 0.0,
+            "title": "Booking Lead Days",
+            "type": "number"
+          },
+          "client_sex": {
+            "anyOf": [
+              {
+                "enum": [
+                  "M",
+                  "F",
+                  "X"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Sex"
+          },
+          "clinic_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Clinic Id",
+            "type": "integer"
+          },
+          "days_since_previous_attended": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Since Previous Attended"
+          },
+          "days_since_previous_no_show": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Since Previous No Show"
+          },
+          "distinct_body_areas": {
+            "minimum": 0.0,
+            "title": "Distinct Body Areas",
+            "type": "integer"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "has_medical_evaluation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Medical Evaluation"
+          },
+          "has_type4_service": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Type4 Service"
+          },
+          "is_fwa": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Fwa"
+          },
+          "previous_attended": {
+            "minimum": 0.0,
+            "title": "Previous Attended",
+            "type": "integer"
+          },
+          "previous_no_show": {
+            "minimum": 0.0,
+            "title": "Previous No Show",
+            "type": "integer"
+          },
+          "previous_no_show_rate": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous No Show Rate"
+          },
+          "scheduled_service_lines": {
+            "minimum": 0.0,
+            "title": "Scheduled Service Lines",
+            "type": "integer"
+          },
+          "single_body_area_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Single Body Area Id"
+          }
+        },
+        "required": [
+          "age_at_booking",
+          "client_sex",
+          "booking_lead_days",
+          "appointment_month",
+          "appointment_weekday",
+          "appointment_hour",
+          "duration_minutes",
+          "is_fwa",
+          "clinic_id",
+          "scheduled_service_lines",
+          "distinct_body_areas",
+          "single_body_area_id",
+          "has_medical_evaluation",
+          "has_type4_service",
+          "previous_attended",
+          "previous_no_show",
+          "previous_no_show_rate",
+          "days_since_previous_attended",
+          "days_since_previous_no_show"
+        ],
+        "title": "PredictionFeatures",
+        "type": "object"
+      },
+      "PredictionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "feature_context": {
+            "$ref": "#/components/schemas/FeatureContext"
+          },
+          "feature_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "features": {
+            "$ref": "#/components/schemas/PredictionFeatures"
+          },
+          "model_key": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9_]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Key"
+          }
+        },
+        "required": [
+          "feature_version",
+          "feature_context",
+          "features"
+        ],
+        "title": "PredictionRequest",
+        "type": "object"
+      },
+      "ResearchCompareResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": "v2",
+            "default": "v2",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "calibration_status": {
+            "const": "not_operationally_validated",
+            "default": "not_operationally_validated",
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/Comparison"
+          },
+          "feature_version": {
+            "const": "BOOKING_BASELINE_V1",
+            "default": "BOOKING_BASELINE_V1",
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "results": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/ResearchPredictionResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ResearchPredictionResponse"
+              }
+            ],
+            "title": "Results",
+            "type": "array"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "null"
+          },
+          "risk_policy_status": {
+            "const": "pending_validation",
+            "default": "pending_validation",
+            "title": "Risk Policy Status",
+            "type": "string"
+          },
+          "validation_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "results",
+          "comparison",
+          "request_id"
+        ],
+        "title": "ResearchCompareResponse",
+        "type": "object"
+      },
+      "ResearchPolicyCatalog": {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": "v2",
+            "default": "v2",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "policies": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchPolicyView"
+            },
+            "title": "Policies",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "disabled",
+                  "models_unavailable",
+                  "missing_policy",
+                  "hash_mismatch",
+                  "invalid_policy",
+                  "model_identity_mismatch",
+                  "insufficient_support"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RESEARCH_PROVISIONAL",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "validation_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "available",
+          "reason",
+          "policies",
+          "request_id"
+        ],
+        "title": "ResearchPolicyCatalog",
+        "type": "object"
+      },
+      "ResearchPolicyView": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_by": {
+            "title": "Approved By",
+            "type": "null"
+          },
+          "boundary_rule": {
+            "const": "LOW:p<t_low;MEDIUM:t_low<=p<t_high;HIGH:p>=t_high",
+            "title": "Boundary Rule",
+            "type": "string"
+          },
+          "calibration_ece_uniform_10": {
+            "title": "Calibration Ece Uniform 10",
+            "type": "number"
+          },
+          "development_end_exclusive": {
+            "title": "Development End Exclusive",
+            "type": "string"
+          },
+          "development_rows": {
+            "title": "Development Rows",
+            "type": "integer"
+          },
+          "development_start": {
+            "title": "Development Start",
+            "type": "string"
+          },
+          "feature_version": {
+            "const": "BOOKING_BASELINE_V1",
+            "default": "BOOKING_BASELINE_V1",
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "high_lower_threshold": {
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "High Lower Threshold",
+            "type": "number"
+          },
+          "label_cutoff_exclusive": {
+            "title": "Label Cutoff Exclusive",
+            "type": "string"
+          },
+          "low_upper_threshold": {
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Low Upper Threshold",
+            "type": "number"
+          },
+          "meaning": {
+            "const": "relative_score_band_not_validated_absolute_risk",
+            "title": "Meaning",
+            "type": "string"
+          },
+          "method": {
+            "const": "score_quantiles_tertiles_exploratory",
+            "title": "Method",
+            "type": "string"
+          },
+          "model_hash_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Model Hash Sha256",
+            "type": "string"
+          },
+          "model_key": {
+            "title": "Model Key",
+            "type": "string"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "policy_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Policy Hash",
+            "type": "string"
+          },
+          "policy_id": {
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "const": "research_risk_v1_1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "RESEARCH_PROVISIONAL",
+            "default": "RESEARCH_PROVISIONAL",
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "model_key",
+          "model_version",
+          "model_hash_sha256",
+          "policy_id",
+          "policy_version",
+          "policy_hash",
+          "low_upper_threshold",
+          "high_lower_threshold",
+          "boundary_rule",
+          "method",
+          "meaning",
+          "development_start",
+          "development_end_exclusive",
+          "label_cutoff_exclusive",
+          "development_rows",
+          "calibration_ece_uniform_10",
+          "warnings"
+        ],
+        "title": "ResearchPolicyView",
+        "type": "object"
+      },
+      "ResearchPredictionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "enum": [
+              "random_forest",
+              "xgboost"
+            ],
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "api_version": {
+            "const": "v2",
+            "default": "v2",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "calibration_status": {
+            "const": "not_operationally_validated",
+            "default": "not_operationally_validated",
+            "title": "Calibration Status",
+            "type": "string"
+          },
+          "experimental_risk": {
+            "$ref": "#/components/schemas/ExperimentalRisk"
+          },
+          "feature_version": {
+            "const": "BOOKING_BASELINE_V1",
+            "default": "BOOKING_BASELINE_V1",
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "model_hash": {
+            "title": "Model Hash",
+            "type": "string"
+          },
+          "model_hash_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Model Hash Sha256",
+            "type": "string"
+          },
+          "model_key": {
+            "title": "Model Key",
+            "type": "string"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "operational_use_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Operational Use Allowed",
+            "type": "boolean"
+          },
+          "prediction_target": {
+            "const": "NO_SHOW_CANDIDATE",
+            "default": "NO_SHOW_CANDIDATE",
+            "title": "Prediction Target",
+            "type": "string"
+          },
+          "probability_no_show": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Probability No Show",
+            "type": "number"
+          },
+          "probability_no_show_percent": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Probability No Show Percent",
+            "type": "number"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "null"
+          },
+          "risk_policy_status": {
+            "const": "pending_validation",
+            "default": "pending_validation",
+            "title": "Risk Policy Status",
+            "type": "string"
+          },
+          "target_class": {
+            "const": 1,
+            "default": 1,
+            "title": "Target Class",
+            "type": "integer"
+          },
+          "validation_status": {
+            "const": "EXPLORATORY_NOT_VALIDATED",
+            "default": "EXPLORATORY_NOT_VALIDATED",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_key",
+          "algorithm",
+          "model_version",
+          "model_hash",
+          "probability_no_show",
+          "request_id",
+          "model_hash_sha256",
+          "probability_no_show_percent",
+          "experimental_risk"
+        ],
+        "title": "ResearchPredictionResponse",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "in": "header",
+        "name": "X-Service-API-Key",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "title": "DEPI internal ML research risk",
+    "version": "v2"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/internal/v2/predictions": {
+      "post": {
+        "description": "Mismo score crudo v1, porcentaje y banda relativa por modelo; operational_use_allowed=false.",
+        "operationId": "ResearchPredictNoShow",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchPredictionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Research Single",
+        "tags": [
+          "research-risk"
+        ]
+      }
+    },
+    "/internal/v2/predictions/compare": {
+      "post": {
+        "description": "RF y XGB independientes; sin winner, ensemble ni banda combinada.",
+        "operationId": "ResearchCompareModels",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchCompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Research Compare",
+        "tags": [
+          "research-risk"
+        ]
+      }
+    },
+    "/internal/v2/risk-policy": {
+      "get": {
+        "description": "Bandas relativas provisionales; nunca aprobación operativa. UNAVAILABLE no afecta v1.",
+        "operationId": "ResearchRiskPolicyCatalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchPolicyCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Policy Catalog",
+        "tags": [
+          "research-risk"
+        ]
+      }
+    }
+  }
+}

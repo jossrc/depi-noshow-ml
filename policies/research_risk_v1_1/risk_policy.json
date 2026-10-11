@@ -1,0 +1,342 @@
+{
+  "artifact_type": "research_risk_policy",
+  "format_version": 1,
+  "policies": [
+    {
+      "policy_id": "random_forest_full_v1_tertiles_202604_202605",
+      "policy_version": "research_risk_v1_1",
+      "model_key": "random_forest_full_v1",
+      "model_version": "random_forest_full_v1:4e3c86a17005",
+      "model_sha256": "4e3c86a170056146cf82a2cc109ae9051b81845608dbd58aae11e43d97492e08",
+      "feature_version": "BOOKING_BASELINE_V1",
+      "prediction_target": "NO_SHOW_CANDIDATE",
+      "target_class": 1,
+      "score_space": "raw_probability_no_show",
+      "low_upper_threshold": 0.302192334412,
+      "high_lower_threshold": 0.460052607619,
+      "boundary_rule": "LOW:p<t_low;MEDIUM:t_low<=p<t_high;HIGH:p>=t_high",
+      "method": "score_quantiles_tertiles_exploratory",
+      "quantile_interpolation": "linear",
+      "threshold_decimal_places": 12,
+      "seed": 42,
+      "development_start": "2026-04-01T00:00:00-05:00",
+      "development_end_exclusive": "2026-06-01T00:00:00-05:00",
+      "diagnostic_end_exclusive": "2026-07-01T00:00:00-05:00",
+      "label_cutoff_exclusive": "2026-07-01T05:00:00+00:00",
+      "source": {
+        "dataset_sha256": "9241f2ee0a791ac4c0f8bc795e274338dd3e9b3bd216394ccd920a67bcaf0faa",
+        "dataset_manifest_sha256": "c754336e33055982bb6001a5c2280fbee2859e17de45deacf99cb27c8bbcce8f",
+        "labels_sha256": "df6b9a58cdf5a65b6b808a776100768c565ab402aa5512b42a4d5ed0e48292ae",
+        "labels_manifest_sha256": "9a3d45fb72093b10cbdf6641d48e89122baaccbce6161db773c2b53b67e2a292",
+        "experiment_manifest_sha256": "ae7627340fe5207238da86f0db3d5ebc2b31250a1e4460c7926f169b5c658aac"
+      },
+      "development_rows": 33808,
+      "development_positives": 8869,
+      "development_prevalence": 0.262334358732,
+      "band_evidence": [
+        {
+          "model_key": "random_forest_full_v1",
+          "period": "development_april_may",
+          "clinic_id": null,
+          "level": "LOW",
+          "rows": 11270,
+          "positives": 1137,
+          "observed_rate": 0.100887311446,
+          "coverage": 0.333353052532,
+          "clients": 9164,
+          "ci95": [
+            0.095724957834,
+            0.106637557884
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.100887311446,
+          "recall_of_all_positive_events": 0.128199346037,
+          "false_positives_if_band_selected": 10133,
+          "positive_events_outside_band": 7732
+        },
+        {
+          "model_key": "random_forest_full_v1",
+          "period": "development_april_may",
+          "clinic_id": null,
+          "level": "MEDIUM",
+          "rows": 11269,
+          "positives": 2469,
+          "observed_rate": 0.219096636791,
+          "coverage": 0.333323473734,
+          "clients": 9271,
+          "ci95": [
+            0.211062385974,
+            0.226720581288
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.219096636791,
+          "recall_of_all_positive_events": 0.278385387304,
+          "false_positives_if_band_selected": 8800,
+          "positive_events_outside_band": 6400
+        },
+        {
+          "model_key": "random_forest_full_v1",
+          "period": "development_april_may",
+          "clinic_id": null,
+          "level": "HIGH",
+          "rows": 11269,
+          "positives": 5263,
+          "observed_rate": 0.46703345461,
+          "coverage": 0.333323473734,
+          "clients": 8340,
+          "ci95": [
+            0.456263154322,
+            0.47658854202
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.46703345461,
+          "recall_of_all_positive_events": 0.593415266659,
+          "false_positives_if_band_selected": 6006,
+          "positive_events_outside_band": 3606
+        },
+        {
+          "model_key": "random_forest_full_v1",
+          "period": "diagnostic_june",
+          "clinic_id": null,
+          "level": "LOW",
+          "rows": 2841,
+          "positives": 133,
+          "observed_rate": 0.046814501936,
+          "coverage": 0.372883580522,
+          "clients": 2732,
+          "ci95": [
+            0.039234085454,
+            0.054815910264
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.046814501936,
+          "recall_of_all_positive_events": 0.126066350711,
+          "false_positives_if_band_selected": 2708,
+          "positive_events_outside_band": 922
+        },
+        {
+          "model_key": "random_forest_full_v1",
+          "period": "diagnostic_june",
+          "clinic_id": null,
+          "level": "MEDIUM",
+          "rows": 2511,
+          "positives": 272,
+          "observed_rate": 0.108323377141,
+          "coverage": 0.329570809818,
+          "clients": 2418,
+          "ci95": [
+            0.097041339409,
+            0.120512681504
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.108323377141,
+          "recall_of_all_positive_events": 0.257819905213,
+          "false_positives_if_band_selected": 2239,
+          "positive_events_outside_band": 783
+        },
+        {
+          "model_key": "random_forest_full_v1",
+          "period": "diagnostic_june",
+          "clinic_id": null,
+          "level": "HIGH",
+          "rows": 2267,
+          "positives": 650,
+          "observed_rate": 0.286722540803,
+          "coverage": 0.29754560966,
+          "clients": 2063,
+          "ci95": [
+            0.266724978719,
+            0.305981938547
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.286722540803,
+          "recall_of_all_positive_events": 0.616113744076,
+          "false_positives_if_band_selected": 1617,
+          "positive_events_outside_band": 405
+        }
+      ],
+      "calibration_ece": 0.14435993417,
+      "support_passed": true,
+      "status": "RESEARCH_PROVISIONAL",
+      "meaning": "relative_score_band_not_validated_absolute_risk",
+      "operational_use_allowed": false,
+      "approved_by": null,
+      "warnings": [
+        "Relative raw-score bands, not validated absolute risks or cancellation probabilities.",
+        "Original model/hyperparameters already exposed to April-June validation; June is not independent model evaluation.",
+        "Historical booking/catalog snapshots and actual label availability remain unaccredited.",
+        "Approximate June-July business transition; post-change performance is unknown without independent evaluation.",
+        "No operational approval; no automatic commercial actions. Calibration candidates are offline only."
+      ],
+      "policy_hash_sha256": "1d58ce962e899b758275f7191244225e8c970cf2db9661ffcb21be9b63a4ce74"
+    },
+    {
+      "policy_id": "xgboost_full_v1_tertiles_202604_202605",
+      "policy_version": "research_risk_v1_1",
+      "model_key": "xgboost_full_v1",
+      "model_version": "xgboost_full_v1:376d3db9d4d3",
+      "model_sha256": "376d3db9d4d32b69784aeb49908ed4f564f95d4528c1f9ff4e766d9fdea505db",
+      "feature_version": "BOOKING_BASELINE_V1",
+      "prediction_target": "NO_SHOW_CANDIDATE",
+      "target_class": 1,
+      "score_space": "raw_probability_no_show",
+      "low_upper_threshold": 0.243454828858,
+      "high_lower_threshold": 0.4351593256,
+      "boundary_rule": "LOW:p<t_low;MEDIUM:t_low<=p<t_high;HIGH:p>=t_high",
+      "method": "score_quantiles_tertiles_exploratory",
+      "quantile_interpolation": "linear",
+      "threshold_decimal_places": 12,
+      "seed": 42,
+      "development_start": "2026-04-01T00:00:00-05:00",
+      "development_end_exclusive": "2026-06-01T00:00:00-05:00",
+      "diagnostic_end_exclusive": "2026-07-01T00:00:00-05:00",
+      "label_cutoff_exclusive": "2026-07-01T05:00:00+00:00",
+      "source": {
+        "dataset_sha256": "9241f2ee0a791ac4c0f8bc795e274338dd3e9b3bd216394ccd920a67bcaf0faa",
+        "dataset_manifest_sha256": "c754336e33055982bb6001a5c2280fbee2859e17de45deacf99cb27c8bbcce8f",
+        "labels_sha256": "df6b9a58cdf5a65b6b808a776100768c565ab402aa5512b42a4d5ed0e48292ae",
+        "labels_manifest_sha256": "9a3d45fb72093b10cbdf6641d48e89122baaccbce6161db773c2b53b67e2a292",
+        "experiment_manifest_sha256": "ae7627340fe5207238da86f0db3d5ebc2b31250a1e4460c7926f169b5c658aac"
+      },
+      "development_rows": 33808,
+      "development_positives": 8869,
+      "development_prevalence": 0.262334358732,
+      "band_evidence": [
+        {
+          "model_key": "xgboost_full_v1",
+          "period": "development_april_may",
+          "clinic_id": null,
+          "level": "LOW",
+          "rows": 11269,
+          "positives": 1269,
+          "observed_rate": 0.112609814535,
+          "coverage": 0.333323473734,
+          "clients": 9201,
+          "ci95": [
+            0.106946858491,
+            0.118564053394
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.112609814535,
+          "recall_of_all_positive_events": 0.143082647424,
+          "false_positives_if_band_selected": 10000,
+          "positive_events_outside_band": 7600
+        },
+        {
+          "model_key": "xgboost_full_v1",
+          "period": "development_april_may",
+          "clinic_id": null,
+          "level": "MEDIUM",
+          "rows": 11271,
+          "positives": 2654,
+          "observed_rate": 0.235471564191,
+          "coverage": 0.33338263133,
+          "clients": 9247,
+          "ci95": [
+            0.22725789199,
+            0.243473728019
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.235471564191,
+          "recall_of_all_positive_events": 0.299244559702,
+          "false_positives_if_band_selected": 8617,
+          "positive_events_outside_band": 6215
+        },
+        {
+          "model_key": "xgboost_full_v1",
+          "period": "development_april_may",
+          "clinic_id": null,
+          "level": "HIGH",
+          "rows": 11268,
+          "positives": 4946,
+          "observed_rate": 0.438942137025,
+          "coverage": 0.333293894936,
+          "clients": 8311,
+          "ci95": [
+            0.429282508896,
+            0.447878343937
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.438942137025,
+          "recall_of_all_positive_events": 0.557672792874,
+          "false_positives_if_band_selected": 6322,
+          "positive_events_outside_band": 3923
+        },
+        {
+          "model_key": "xgboost_full_v1",
+          "period": "diagnostic_june",
+          "clinic_id": null,
+          "level": "LOW",
+          "rows": 3047,
+          "positives": 189,
+          "observed_rate": 0.062028224483,
+          "coverage": 0.399921249508,
+          "clients": 2928,
+          "ci95": [
+            0.053919871009,
+            0.07047083441
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.062028224483,
+          "recall_of_all_positive_events": 0.179146919431,
+          "false_positives_if_band_selected": 2858,
+          "positive_events_outside_band": 866
+        },
+        {
+          "model_key": "xgboost_full_v1",
+          "period": "diagnostic_june",
+          "clinic_id": null,
+          "level": "MEDIUM",
+          "rows": 2570,
+          "positives": 329,
+          "observed_rate": 0.128015564202,
+          "coverage": 0.337314608216,
+          "clients": 2469,
+          "ci95": [
+            0.115143366866,
+            0.141117623207
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.128015564202,
+          "recall_of_all_positive_events": 0.311848341232,
+          "false_positives_if_band_selected": 2241,
+          "positive_events_outside_band": 726
+        },
+        {
+          "model_key": "xgboost_full_v1",
+          "period": "diagnostic_june",
+          "clinic_id": null,
+          "level": "HIGH",
+          "rows": 2002,
+          "positives": 537,
+          "observed_rate": 0.268231768232,
+          "coverage": 0.262764142276,
+          "clients": 1834,
+          "ci95": [
+            0.248116142896,
+            0.287751113063
+          ],
+          "ci_method": "client_cluster_percentile_1000_seed42_conditional_on_fixed_model_and_thresholds",
+          "precision_if_band_selected": 0.268231768232,
+          "recall_of_all_positive_events": 0.509004739336,
+          "false_positives_if_band_selected": 1465,
+          "positive_events_outside_band": 518
+        }
+      ],
+      "calibration_ece": 0.100343621687,
+      "support_passed": true,
+      "status": "RESEARCH_PROVISIONAL",
+      "meaning": "relative_score_band_not_validated_absolute_risk",
+      "operational_use_allowed": false,
+      "approved_by": null,
+      "warnings": [
+        "Relative raw-score bands, not validated absolute risks or cancellation probabilities.",
+        "Original model/hyperparameters already exposed to April-June validation; June is not independent model evaluation.",
+        "Historical booking/catalog snapshots and actual label availability remain unaccredited.",
+        "Approximate June-July business transition; post-change performance is unknown without independent evaluation.",
+        "No operational approval; no automatic commercial actions. Calibration candidates are offline only."
+      ],
+      "policy_hash_sha256": "208c706d839b7c8b71134cd225da4bc1bb935c5d4bd06cbb898a8d8f84ee7032"
+    }
+  ]
+}

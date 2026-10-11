@@ -279,3 +279,10 @@ No hace falta administrar Docker. No reutilizar basetemp preexistente que pytest
 pudiera limpiar. Auditoría `--only` acepta categorías fijas para evitar repetir
 escaneos. No ejecutar comandos de entrenamiento/evaluate para estos originales
 como parte de esta reproducción técnica.
+
+---
+
+Adición posterior, 11-10-2026: el nuevo encargo autorizó e implementó bandas
+RELATIVAS exploratorias en API v2. La recuperación y sus conclusiones históricas
+anteriores permanecen intactas; no se aprobaron riesgos absolutos/uso operativo.
+Véase [cierre research risk](ml_research_risk_closeout_20261011.md).

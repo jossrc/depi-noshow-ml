@@ -1,0 +1,25 @@
+{
+  "status": "RESEARCH_PROVISIONAL",
+  "operational_use_allowed": false,
+  "approved_by": null,
+  "policy_file_sha256": "459b9b6da3f0a724df787606630942386928ddee8758439cb3da9131a30b075a",
+  "reference_manifest_sha256": "ae7627340fe5207238da86f0db3d5ebc2b31250a1e4460c7926f169b5c658aac",
+  "checks": [
+    "trusted_original_models_verified_without_deserialization",
+    "both_model_identities_match",
+    "policy_content_hashes_match",
+    "nondegenerate_thresholds",
+    "cohort_support_and_monotonicity"
+  ],
+  "policies": [
+    {
+      "model_key": "random_forest_full_v1",
+      "policy_hash": "1d58ce962e899b758275f7191244225e8c970cf2db9661ffcb21be9b63a4ce74"
+    },
+    {
+      "model_key": "xgboost_full_v1",
+      "policy_hash": "208c706d839b7c8b71134cd225da4bc1bb935c5d4bd06cbb898a8d8f84ee7032"
+    }
+  ],
+  "publication_meaning": "technical_research_release_only_not_operational_or_scientific_approval"
+}

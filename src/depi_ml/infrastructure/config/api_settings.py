@@ -23,6 +23,10 @@ class ApiSettings(BaseModel):
     expose_docs: bool = False
     enable_local_explanations: bool = Field(default=False, strict=True)
     max_batch_items: int = Field(default=32, ge=1, le=64, strict=True)
+    enable_research_risk: bool = Field(default=False, strict=True)
+    research_risk_policy_path: Path | None = None
+    # A malformed optional policy pin must disable v2, without breaking v1.
+    research_risk_policy_sha256: str | None = None
 
     @field_validator("service_key")
     @classmethod
@@ -47,14 +51,18 @@ class ApiSettings(BaseModel):
             "max_request_bytes": "ML_MAX_REQUEST_BYTES", "max_concurrent_predictions": "ML_MAX_CONCURRENT_PREDICTIONS",
             "expose_docs": "ML_EXPOSE_DOCS",
             "enable_local_explanations": "ML_ENABLE_LOCAL_EXPLANATIONS", "max_batch_items": "ML_MAX_BATCH_ITEMS",
+            "enable_research_risk": "ML_ENABLE_RESEARCH_RISK",
+            "research_risk_policy_path": "ML_RESEARCH_RISK_POLICY_PATH",
+            "research_risk_policy_sha256": "ML_RESEARCH_RISK_POLICY_SHA256",
         }
         try:
             values = {field: os.environ[name] for field, name in names.items() if name in os.environ}
-            if "enable_local_explanations" in values:
-                flag = values["enable_local_explanations"]
-                if flag not in ("true", "false"):
-                    raise ValueError
-                values["enable_local_explanations"] = flag == "true"
+            for field in ("enable_local_explanations", "enable_research_risk"):
+                if field in values:
+                    flag = values[field]
+                    if flag not in ("true", "false"):
+                        raise ValueError
+                    values[field] = flag == "true"
             if "max_batch_items" in values:
                 size = values["max_batch_items"]
                 if not size.isascii() or not size.isdecimal():

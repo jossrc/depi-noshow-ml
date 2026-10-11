@@ -23,9 +23,15 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--port", type=int, default=8001)
     parser.add_argument("--extensions", action="store_true", help="Verify explain RF/XGB and both batch modes")
+    parser.add_argument("--research-risk",action="store_true",help="Verify published v2 policies and all synthetic bands")
+    parser.add_argument("--policy",type=Path)
+    parser.add_argument("--policy-sha256")
+    parser.add_argument("--expect-research-unavailable",action="store_true",help="Verify v2 flag off isolation on real HTTP")
     args = parser.parse_args()
     if args.output.exists() or not 1024 <= args.port <= 65535:
         parser.error("Destino debe ser nuevo y puerto entre 1024 y 65535.")
+    if args.research_risk and (args.policy is None or args.policy_sha256 is None or args.expect_research_unavailable):
+        parser.error("Research requiere --policy y pin explícito; incompatible con disabled check.")
     # Verify a free loopback port before launch; never attach to another service.
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", args.port))
@@ -34,7 +40,10 @@ def main():
            "ML_API_MODE": "exploratory_demo", "ML_API_SERVICE_KEY": key,
            "ML_MODEL_REFERENCE_DIR": str(args.reference.resolve()), "ML_MODEL_MANIFEST_SHA256": args.manifest_sha256,
            "ML_EXPOSE_DOCS": "false", "ML_ENABLE_LOCAL_EXPLANATIONS": str(args.extensions).lower(),
-           "ML_MAX_BATCH_ITEMS": "32", "ML_MAX_CONCURRENT_PREDICTIONS": "2"}
+           "ML_MAX_BATCH_ITEMS": "32", "ML_MAX_CONCURRENT_PREDICTIONS": "2",
+           "ML_MAX_REQUEST_BYTES":"262144","ML_ENABLE_RESEARCH_RISK":str(args.research_risk).lower()}
+    if args.research_risk:
+        env.update(ML_RESEARCH_RISK_POLICY_PATH=str(args.policy.resolve()),ML_RESEARCH_RISK_POLICY_SHA256=args.policy_sha256)
     # Not using --env-file: do not import database credentials from .env.
     env.pop("POSTGRES_PASSWORD", None)
     with TemporaryFile() as logs:
@@ -131,13 +140,59 @@ def main():
                             "wrong_snapshot": 422, "invalid_top_k": 422, "empty_batch": 422, "oversized": 413}
                 assert all(negatives[name]["status"] == status for name, status in expected.items())
                 report.update(negatives)
+            if args.research_risk:
+                report["research_catalog"]=curl("/internal/v2/risk-policy",authenticated=True)
+                assert report["research_catalog"]["status"]==200 and report["research_catalog"]["body"]["available"]
+                public_cases=json.loads(Path("examples/research_risk_synthetic_cases.json").read_text())
+                report["research_cases"]=[]
+                covered={"random_forest_full_v1":set(),"xgboost_full_v1":set()}
+                for case in public_cases:
+                    record={"name":case["name"],"synthetic_payload":case["payload"],"single":[]}
+                    for model,expected_level in case["expected_levels"].items():
+                        body={**case["payload"],"model_key":model}
+                        legacy=curl("/internal/v1/predictions",body,True)
+                        response=curl("/internal/v2/predictions",body,True)
+                        assert legacy["status"]==response["status"]==200
+                        result=response["body"]
+                        assert math.isclose(result["probability_no_show"],legacy["body"]["probability_no_show"],rel_tol=0,abs_tol=1e-10)
+                        assert result["experimental_risk"]["level"]==expected_level
+                        assert result["experimental_risk"]["status"]=="RESEARCH_PROVISIONAL" and result["operational_use_allowed"] is False
+                        covered[model].add(expected_level)
+                        record["single"].append(response)
+                    record["compare"]=curl("/internal/v2/predictions/compare",case["payload"],True)
+                    assert record["compare"]["status"]==200
+                    assert [r["experimental_risk"]["level"] for r in record["compare"]["body"]["results"]]==list(case["expected_levels"].values())
+                    report["research_cases"].append(record)
+                assert all(levels=={"LOW","MEDIUM","HIGH"} for levels in covered.values())
+                report["research_coverage"]={k:sorted(v) for k,v in covered.items()}
+                report["research_negatives"]={
+                    "missing_key":curl("/internal/v2/risk-policy"),
+                    "invalid_key":curl("/internal/v2/predictions",{},invalid_key=True),
+                    "duplicate_key":curl("/internal/v2/risk-policy",authenticated=True,duplicate_key=True),
+                    "invalid_json":curl("/internal/v2/predictions",authenticated=True,raw_body="{"),
+                    "wrong_version":curl("/internal/v2/predictions",{**payload,"feature_version":"wrong"},True),
+                    "extra_predictor":curl("/internal/v2/predictions",{**payload,"features":{**payload["features"],"previous_cancelled":0}},True),
+                    "invalid_type":curl("/internal/v2/predictions",{**payload,"features":{**payload["features"],"clinic_id":"1"}},True),
+                    "wrong_snapshot":curl("/internal/v2/predictions",{**payload,"feature_context":{"snapshot_type":"current"}},True),
+                    "oversized":curl("/internal/v2/predictions",authenticated=True,raw_body='"'+"x"*262145+'"'),
+                }
+                expected=[401,401,401,400,409,422,422,422,413]
+                assert [r["status"] for r in report["research_negatives"].values()]==expected
+            elif args.expect_research_unavailable:
+                report["research_disabled_catalog"]=curl("/internal/v2/risk-policy",authenticated=True)
+                assert report["research_disabled_catalog"]["status"]==200
+                assert report["research_disabled_catalog"]["body"]["status"]=="UNAVAILABLE"
+                assert report["research_disabled_catalog"]["body"]["reason"]=="disabled"
+                report["research_disabled_prediction"]=curl("/internal/v2/predictions",payload,True)
+                assert report["research_disabled_prediction"]["status"]==503
+                assert report["ready"]["status"]==200 and report["random_forest"]["status"]==200
             assert report["unauthorized"]["status"] == 401
             assert all(report[name]["status"] == 200 for name in ("live", "ready", "models", "random_forest", "xgboost", "compare"))
             args.output.parent.mkdir(parents=True, exist_ok=True)
             with args.output.open("x", encoding="utf-8") as stream:
                 json.dump(report, stream, indent=2)
                 stream.write("\n")
-            print(json.dumps({name: item["status"] for name, item in report.items() if isinstance(item, dict)}))
+            print(json.dumps({name: item["status"] for name, item in report.items() if isinstance(item, dict) and "status" in item}))
         finally:
             process.terminate()
             try:
